@@ -19,8 +19,7 @@ const Setting = ({ isOpen, onClose }) => {
       Animated.parallel([
         Animated.timing(translateX, {
           toValue: 0,
-          duration: 380,
-          easing: Easing.out(Easing.cubic),
+          duration: 350,
           useNativeDriver: true,
         }),
         Animated.timing(backdropOpacity, {
@@ -52,58 +51,72 @@ const Setting = ({ isOpen, onClose }) => {
 
   return (
     <Modal transparent visible={isVisible} animationType='none' statusBarTranslucent onRequestClose={onClose}>
-      <View>
-        <Animated.View style={{ opacity: backdropOpacity }}>
-          <Pressable onPress={onClose} />
+      <View className='flex-1 relative'>
+        <Animated.View 
+          className='absolute inset-0 bg-zinc-900/60' 
+          style={{ opacity: backdropOpacity }}
+        >
+          <Pressable className='w-full h-full' onPress={onClose} />
         </Animated.View>
 
         <Animated.View
-          className='w-[82%] bg-zinc-900 border-l border-zinc-800 px-6 rounded-l-2xl flex flex-col justify-between overflow-hidden'
+          className='absolute left-0 top-0 bottom-0 h-full w-[82%] bg-zinc-900 border-l border-zinc-800 px-6 rounded-l-2xl flex flex-col justify-between overflow-hidden z-10'
           style={[
             {
               paddingTop: insets.top + 24,
               paddingBottom: Math.max(insets.bottom, 24),
-              transform: [{ translateX: -translateX }],
+              transform: [{ translateX }],
             },
           ]}>
           <View>
+            {/* الهيدر */}
             <View className='flex-row items-center justify-between mb-8'>
               <Text className='text-2xl font-bold text-white'>الإعدادات</Text>
-              <Pressable onPress={onClose} className='text-zinc-400 hover:text-white bg-zinc-800/60 rounded-full w-10 h-10 flex items-center justify-center active:scale-95 transition-all'>
+              <Pressable 
+                onPress={onClose} 
+                className='bg-zinc-800/60 rounded-full w-10 h-10 flex items-center justify-center active:scale-95'
+              >
                 <FontAwesome name='times' size={14} color='#d4d4d8' />
               </Pressable>
             </View>
 
+            {/* الخيارات */}
             <View className='flex flex-col gap-3'>
-              <Pressable className='w-full p-4 bg-zinc-800/40 border border-zinc-800/30 text-right rounded-xl flex-row justify-between items-center transition-all active:scale-[0.99]'>
-                <Text className='font-medium'>اللغة</Text>
+              <Pressable className='w-full p-4 bg-zinc-800/40 border border-zinc-800/30 rounded-xl flex-row justify-between items-center active:scale-[0.99]'>
+                <Text className='font-medium text-white'>اللغة</Text>
                 <Text className='text-zinc-500 text-sm'>العربية</Text>
               </Pressable>
-              <Pressable className='w-full p-4 bg-zinc-800/40 border border-zinc-800/30 text-right rounded-xl flex-row justify-between items-center transition-all active:scale-[0.99]'>
-                <Text className='font-medium'>الوضع الداكن</Text>
+
+              <Pressable className='w-full p-4 bg-zinc-800/40 border border-zinc-800/30 rounded-xl flex-row justify-between items-center active:scale-[0.99]'>
+                <Text className='font-medium text-white'>الوضع الداكن</Text>
                 <Text className='text-green-500 text-sm'>مفعل</Text>
               </Pressable>
-              <Pressable className='w-full p-4 bg-zinc-800/40 border border-zinc-800/30 text-right rounded-xl flex-row justify-between items-center transition-all active:scale-[0.99]'>
-                <Text className='font-medium'>التنببهات</Text>
+
+              <Pressable className='w-full p-4 bg-zinc-800/40 border border-zinc-800/30 rounded-xl flex-row justify-between items-center active:scale-[0.99]'>
+                <Text className='font-medium text-white'>التنبيهات</Text>
                 <Text className='text-zinc-500'>›</Text>
               </Pressable>
-              <Pressable className='w-full p-4 bg-zinc-800/40 border border-zinc-800/30 text-right rounded-xl flex-row justify-between items-center transition-all active:scale-[0.99]'>
-                <Text className='font-medium'>تغيير كلمة المرور</Text>
+
+              <Pressable className='w-full p-4 bg-zinc-800/40 border border-zinc-800/30 rounded-xl flex-row justify-between items-center active:scale-[0.99]'>
+                <Text className='font-medium text-white'>تغيير كلمة المرور</Text>
                 <Text className='text-zinc-500'>›</Text>
               </Pressable>
-              <Pressable className='w-full p-4 bg-zinc-800/40 border border-zinc-800/30 text-right rounded-xl flex-row justify-between items-center transition-all active:scale-[0.99]'>
-                <Text className='font-medium'>مساعدة ودعم</Text>
+
+              <Pressable className='w-full p-4 bg-zinc-800/40 border border-zinc-800/30 rounded-xl flex-row justify-between items-center active:scale-[0.99]'>
+                <Text className='font-medium text-white'>مساعدة ودعم</Text>
                 <Text className='text-zinc-500'>›</Text>
               </Pressable>
             </View>
           </View>
 
+          {/* الجزء السفلي */}
           <View className='flex flex-col gap-4 items-center w-full'>
-            <View className='flex-row justify-between items-center w-full gap-4 text-sm'>
-              <Pressable className='flex-1 p-3 bg-zinc-800 border border-zinc-700 text-red-500 font-medium rounded-xl active:scale-95 transition-all text-center'>
-                <Text className='text-red-500 font-medium text-center'>تسجيل الخروج</Text>
+            <View className='flex-row justify-between items-center w-full gap-4'>
+              <Pressable className='flex-1 p-3 bg-zinc-800 border border-zinc-700 rounded-xl active:scale-95 items-center justify-center'>
+                <Text className='text-red-500 font-medium text-center text-sm'>تسجيل الخروج</Text>
               </Pressable>
-              <Pressable className='flex-1 p-3 bg-red-950/30 border border-red-900/40 text-red-400 font-medium rounded-xl active:scale-95 transition-all text-center text-xs'>
+
+              <Pressable className='flex-1 p-3 bg-red-950/30 border border-red-900/40 rounded-xl active:scale-95 items-center justify-center'>
                 <Text className='text-red-400 font-medium text-center text-xs'>حذف الحساب</Text>
               </Pressable>
             </View>

@@ -55,12 +55,12 @@ src/
   api/
     auth.api.js
     client.js
+    routing.api.js
   client/
     components/
-      trip/
-        LocationSearchInput.jsx
-        TripPlannerPanel.jsx
-        TripStatusPanel.jsx
+      map/
+        AnimatedMarker.js
+        TripRouteMap.js
       Header.jsx
       MapComponent.jsx
       Navigation.jsx
@@ -68,7 +68,9 @@ src/
       Sections.jsx
       Setting.jsx
       Tag.jsx
-      Wallet.jsx
+    hooks/
+      useLiveLocation.js
+      useTrackParty.js
     screens/
       EditProfile.jsx
       Favorites.jsx
@@ -77,8 +79,9 @@ src/
       Profile.jsx
       RequestTrip.jsx
       SignUp.jsx
-  modal/
-    modal.tsx
+    services/
+      place.service.js
+      socket.service.js
   navigation/
     AuthNavigator.tsx
     ClientNavigator.tsx
@@ -98,7 +101,8 @@ src/
     components/
       NeonStreaks.tsx
     screens/
-      Login.tsx
+      Login.jsx
+      TripTrackingScreen.jsx
   global.css
 .gitignore
 AGENTS.md
@@ -120,6 +124,14 @@ tsconfig.json
 <files>
 This section contains the contents of the repository's files.
 
+<file path=".claude/settings.json">
+{
+  "enabledPlugins": {
+    "expo@claude-plugins-official": true
+  }
+}
+</file>
+
 <file path="src/api/auth.api.js">
 import client from './client'
 
@@ -140,7 +152,7 @@ export const getMeRequest = () => {
 import axios from 'axios'
 import * as SecureStore from 'expo-secure-store'
 
-const BASE_URL = 'http://192.168.1.2:5000/api'
+const BASE_URL = 'http://192.168.1.10:5000/api'
 
 const client = axios.create({
 	baseURL: BASE_URL,
@@ -158,171 +170,92 @@ client.interceptors.request.use(async config => {
 export default client
 </file>
 
-<file path="src/client/components/trip/LocationSearchInput.jsx">
-import React, { useMemo, useState } from 'react'
-import { Pressable, Text, TextInput, View } from 'react-native'
+<file path="src/api/routing.api.js">
+import client from './client';
 
-const SAMPLE_PLACES = [
-	{ localName: 'ميدان رمسيس', fullName: 'ميدان رمسيس - القاهرة', lat: 30.0444, lng: 31.2357 },
-	{ localName: 'مدينة نصر', fullName: 'مدينة نصر - القاهرة', lat: 30.1211, lng: 31.3452 },
-	{ localName: 'الدقي', fullName: 'الدقي - الجيزة', lat: 30.0388, lng: 31.2118 },
-]
-
-const LocationSearchInput = ({ placeholder, onSelect }) => {
-	const [query, setQuery] = useState('')
-	const results = useMemo(() => {
-		const q = query.trim().toLowerCase()
-		if (q.length < 2) return []
-		return SAMPLE_PLACES.filter(place => (place.localName || '').toLowerCase().includes(q) || (place.fullName || '').toLowerCase().includes(q))
-	}, [query])
-
-	return (
-		<View className='flex flex-col gap-1.5'>
-			<TextInput value={query} onChangeText={setQuery} placeholder={placeholder} className='w-full bg-zinc-800 border border-zinc-700/60 rounded-xl px-4 py-3 text-sm text-white placeholder:text-zinc-500' />
-			{results.length > 0 && (
-				<View className='bg-zinc-800/60 border border-zinc-700/40 rounded-xl overflow-hidden'>
-					{results.map((place, i) => (
-						<Pressable key={i} onPress={() => onSelect && onSelect(place)} className='w-full text-right px-3 py-2.5 border-b border-zinc-700/40'>
-							<Text className='text-xs text-zinc-200'>{place.localName || place.fullName}</Text>
-						</Pressable>
-					))}
-				</View>
-			)}
-		</View>
-	)
-}
-
-export default LocationSearchInput
+export const getRouteRequest = async points => {
+  return await client.post('/routing/route', { points });
+};
 </file>
 
-<file path="src/client/components/trip/TripPlannerPanel.jsx">
-import React, { useState } from 'react'
-import { Pressable, Text, TextInput, View } from 'react-native'
+<file path="src/client/components/map/AnimatedMarker.js">
 
-const TripPlannerPanel = ({ trip, onConfirm, requesting, isTripSaved, onToggleSaveTrip }) => {
-	const [startName, setStartName] = useState(trip.startPin?.name || '')
-	const [endName, setEndName] = useState(trip.endPin?.name || '')
-	const [passengerCount, setPassengerCount] = useState(1)
-	const [customerNote, setCustomerNote] = useState('')
-	const [scheduleTime, setScheduleTime] = useState('')
-
-	return (
-		<View className='absolute inset-x-0 top-16 z-30 flex flex-col items-center p-4 gap-3' dir='rtl'>
-			<View className='w-full max-w-sm bg-zinc-900/95 backdrop-blur-md border border-zinc-700/40 rounded-2xl shadow-xl overflow-hidden p-4 gap-3'>
-				<Text className='text-white font-bold text-sm'>طلب الرحلة</Text>
-				<TextInput value={startName} onChangeText={setStartName} placeholder='نقطة البداية' className='bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-white' />
-				<TextInput value={endName} onChangeText={setEndName} placeholder='نقطة الوصول' className='bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-white' />
-				<TextInput value={scheduleTime} onChangeText={setScheduleTime} placeholder='موعد لاحق اختياري' className='bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-white' />
-				<TextInput value={String(passengerCount)} onChangeText={text => setPassengerCount(Math.max(1, Math.min(6, Number(text || 1))))} placeholder='عدد الركاب' keyboardType='numeric' className='bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-white' />
-				<TextInput value={customerNote} onChangeText={setCustomerNote} placeholder='ملاحظات للسائق' multiline className='bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-white min-h-[90px]' />
-
-				<View className='flex-row gap-2'>
-					<Pressable onPress={onToggleSaveTrip} className={`flex-1 rounded-xl py-2.5 ${isTripSaved ? 'bg-emerald-600' : 'bg-zinc-800'}`}>
-						<Text className='text-center text-xs font-bold text-white'>{isTripSaved ? 'محفوظة' : 'حفظ الرحلة'}</Text>
-					</Pressable>
-					<Pressable onPress={() => onConfirm && onConfirm({ scheduledTime: scheduleTime || null, customerNote, passengerCount })} disabled={requesting} className='flex-1 rounded-xl py-2.5 bg-emerald-600'>
-						<Text className='text-center text-xs font-bold text-white'>{requesting ? 'جارِ الإرسال...' : 'تأكيد واطلب'}</Text>
-					</Pressable>
-				</View>
-			</View>
-		</View>
-	)
-}
-
-export default TripPlannerPanel
 </file>
 
-<file path="src/client/components/trip/TripStatusPanel.jsx">
-import React from 'react'
-import { Pressable, Text, View } from 'react-native'
+<file path="src/client/components/map/TripRouteMap.js">
+import React from 'react';
+import mapView, { Polyline, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
-const TripStatusPanel = ({ trip, offers = [], onAccept, onCancel, onFinish }) => {
-	const isPending = trip.status === 'pending'
+const toCoord = point => ({
+  latitude: point.lat,
+  longitude: point.lng,
+});
 
-	return (
-		<View className='absolute bottom-24 left-3 right-3 z-30 bg-zinc-900 border border-zinc-700/40 rounded-3xl p-4 shadow-2xl flex flex-col gap-3 max-h-[60vh] overflow-hidden'>
-			<View className='flex-row items-center justify-between'>
-				<Text className='text-sm font-bold'>{isPending ? 'جارِ البحث عن سائق...' : 'الرحلة جارية'}</Text>
-				{trip.route && <Text className='text-[11px] text-zinc-400'>{trip.route.distanceKm.toFixed(1)} كم</Text>}
-			</View>
+const TripRouteMap = ({ startPin, endPin, waypoints = [], routeCoordinates = [], onMapPress }) => {
+  const initialRegion = {
+    latitude: startPin?.lat ?? 31.1313,
+    longitude: startPin?.lng ?? 33.7984,
+    latitudeDelta: 0.05,
+    longitudeDelta: 0.05,
+  };
+  return <mapView style={{ flex: 1 }} initialRegion={initialRegion} onPress={e => onMapPress?.(e.nativeEvent.coordinate)}>
+		{startPin && <Marker coordinate={toCoord(startPin)} title={startPin.name} pinColor='green' />}
+		{endPin && <Marker coordinate={toCoord(endPin)} title={endPin.name} pinColor='red' />}
+		{waypoints.map((waypoint, index) => (
+			<Marker
+				key={index}
+				coordinate={toCoord(waypoint)}
+				title={waypoint.name}
+				pinColor='blue'
+			/>
+		))}
+		{routeCoordinates.length > 0 && (
+			<Polyline
+				coordinates={routeCoordinates}
+				strokeWidth={4}
+				strokeColor='blue'
+			/>
+		)}
+	</mapView>;
+};
 
-			<View className='flex flex-col gap-1.5 text-xs text-zinc-300 bg-zinc-800/50 rounded-xl p-3'>
-				<Text>من: {trip.startPin?.name || '-'}</Text>
-				{trip.waypoints?.map((wp, i) => <Text key={i} className='text-zinc-400'>محطة: {wp.name}</Text>)}
-				<Text>إلى: {trip.endPin?.name || '-'}</Text>
-			</View>
-
-			{isPending ? (
-				<View className='flex flex-col gap-2'>
-					{offers.length === 0 ? (
-						<Text className='text-zinc-500 text-xs text-center py-4'>لا يوجد سائقون متاحون حاليًا</Text>
-					) : (
-						offers.map(offer => (
-							<View key={offer.id} className='flex-row items-center justify-between gap-3 bg-zinc-800/60 border border-zinc-700/40 rounded-2xl p-3'>
-								<View className='flex-1 min-w-0'>
-									<Text className='text-sm font-semibold truncate'>{offer.driverName}</Text>
-									<Text className='text-[11px] text-zinc-400'>
-										{offer.rate} - {offer.car} - يصل خلال {offer.timeToReach}
-									</Text>
-								</View>
-								<View className='text-left shrink-0 flex flex-col items-end gap-1.5'>
-									<Text className='font-bold text-sm'>{offer.price} ج.م</Text>
-									<Pressable onPress={() => onAccept && onAccept(offer)} className='bg-emerald-600 rounded-lg px-3 py-1.5'>
-										<Text className='text-[11px] font-bold text-white'>قبول</Text>
-									</Pressable>
-								</View>
-							</View>
-						))
-					)}
-
-					<Pressable onPress={onCancel} className='w-full bg-red-950/40 text-red-400 border border-red-900/40 rounded-2xl py-2.5 mt-1'>
-						<Text className='text-center text-xs font-bold text-red-400'>إلغاء الطلب</Text>
-					</Pressable>
-				</View>
-			) : (
-				<View className='flex flex-col gap-3'>
-					<View className='flex-row items-center justify-between bg-zinc-800/60 border border-zinc-700/40 rounded-2xl p-3'>
-						<View>
-							<Text className='text-sm font-semibold'>{trip.driverName}</Text>
-							<Text className='text-[11px] text-zinc-400'>{trip.car}</Text>
-						</View>
-						<Text className='font-bold'>{trip.price} ج.م</Text>
-					</View>
-
-					<Pressable onPress={onFinish} className='w-full bg-emerald-600 rounded-2xl py-2.5'>
-						<Text className='text-center text-xs font-bold text-white'>إنهاء الرحلة (تجريبي)</Text>
-					</Pressable>
-				</View>
-			)}
-		</View>
-	)
-}
-
-export default TripStatusPanel
+export default TripRouteMap;
 </file>
 
 <file path="src/client/components/Header.jsx">
-import React from 'react'
-import { Pressable, Text, View } from 'react-native'
-import FontAwesome from '@expo/vector-icons/FontAwesome'
-import Wallet from './Wallet'
+import React, { useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import Setting from './Setting';
 
 const Header = () => {
-	return (
-		<View className='text-white fixed top-0 left-0 right-0 flex-row justify-between p-4 items-center z-50'>
-			<View className='relative z-20 flex-1 max-w-[75%]'>
-				<Pressable className='text-white bg-zinc-800 rounded-full h-14 w-14 max-w-full min-w-[3.5rem] flex-row items-center justify-start px-4 gap-4 overflow-hidden transition-all duration-500 ease-in-out shadow-2xl hover:bg-blue-600'>
-					<FontAwesome name='bell' size={18} color='white' />
-					<Text className='whitespace-nowrap text-sm font-medium'>تم قبول كابتن أحمد لرحلتك!</Text>
-				</Pressable>
-			</View>
-			<Text className='absolute left-1/2 -translate-x-1/2 text-base font-medium z-10 pointer-events-none'>مرحبا بك عمرو</Text>
-			<Wallet />
-		</View>
-	)
-}
+  const [settingsVisible, setSettingsVisible] = useState(false);
 
-export default Header
+  const handleSettingsPress = () => {
+    setSettingsVisible(!settingsVisible);
+  };
+
+  return (
+    <SafeAreaView edges={['top']} className='flex-row justify-between px-4 pb-4 items-center z-50'>
+      <Pressable 
+        onPress={handleSettingsPress} 
+        className='bg-zinc-800 rounded-full h-12 w-12 items-center justify-center'
+      >
+        <FontAwesome name='gear' size={18} color='white' />
+      </Pressable>
+
+      <Pressable className='bg-zinc-800 rounded-full px-4 h-12 flex-row items-center justify-center gap-2 shadow-lg'>
+        <FontAwesome name='money' size={16} color='#4ade80' />
+        <Text className='font-semibold text-white'>$100</Text>
+      </Pressable>
+
+      <Setting isOpen={settingsVisible} onClose={() => setSettingsVisible(false)} />
+    </SafeAreaView>
+  );
+};
+
+export default Header;
 </file>
 
 <file path="src/client/components/MapComponent.jsx">
@@ -351,46 +284,41 @@ import { Ionicons } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 
 const TABS = [
-  { name: 'Home', icon: 'home-outline', color: '#22D3EE' },
-  { name: 'History', icon: 'time-outline', color: '#A3E635' },
-  { name: 'Favorites', icon: 'heart-outline', color: '#F472B6' },
-  { name: 'Profile', icon: 'person-outline', color: '#FACC15' },
+  { name: 'Home', icon: 'home-outline', color: '#22D3EE', bgColor: '#164E63' }, // Cyan غامق
+  { name: 'History', icon: 'time-outline', color: '#A3E635', bgColor: '#273515' }, // Lime غامق
+  { name: 'Favorites', icon: 'heart-outline', color: '#F472B6', bgColor: '#500724' }, // Pink غامق
+  { name: 'Profile', icon: 'person-outline', color: '#FACC15', bgColor: '#422006' }, // Yellow/Amber غامق
 ];
 
 const ARC_HEIGHT = 22;
 const ANIM_DURATION = 400;
 
-// دلوقتي بترجع تاخد state و navigation تلقائيًا من الـ Tab.Navigator نفسه (زي الأول بالظبط)
-// لأنها بقت شغالة كـ tabBar prop مش بتترندر يدويًا من جوه كل شاشة
 const Navigation = ({ state, navigation }) => {
   const tabPositions = useRef([]);
-  const [measuredCount, setMeasuredCount] = useState(0);
+  const [isReady, setIsReady] = useState(false);
 
   const indicatorX = useSharedValue(0);
   const arcProgress = useSharedValue(0);
-  const activeColor = useSharedValue(TABS[0].color);
+  const activeColor = useSharedValue(TABS[0].bgColor);
 
   useEffect(() => {
-    if (measuredCount === TABS.length && tabPositions.current[state.index] != null) {
+    if (isReady && tabPositions.current[state.index] != null) {
       indicatorX.value = tabPositions.current[state.index];
-      activeColor.value = TABS[state.index].color;
+      activeColor.value = TABS[state.index].bgColor;
     }
-  }, [measuredCount]);
+  }, [isReady]);
 
-  // بيتابع لو الـ tab اتغيّر من مكان تاني (زي navigation.navigate من داخل شاشة)
-  // مش بس من دوسة على الناف بار نفسها
   useEffect(() => {
-    if (measuredCount === TABS.length && tabPositions.current[state.index] != null) {
-      console.log('active index:', state.index, '→ target X:', tabPositions.current[state.index], '| كل المواقع:', tabPositions.current);
+    if (isReady && tabPositions.current[state.index] != null) {
       indicatorX.value = withTiming(tabPositions.current[state.index], {
         duration: ANIM_DURATION,
         easing: Easing.inOut(Easing.quad),
       });
       arcProgress.value = 0;
       arcProgress.value = withTiming(1, { duration: ANIM_DURATION, easing: Easing.linear });
-      activeColor.value = TABS[state.index].color;
+      activeColor.value = TABS[state.index].bgColor;
     }
-  }, [state.index]);
+  }, [state.index, isReady]);
 
   const handleTabPress = (route, index) => {
     const isFocused = state.index === index;
@@ -402,17 +330,16 @@ const Navigation = ({ state, navigation }) => {
   };
 
   const indicatorStyle = useAnimatedStyle(() => {
-    const liftY = -Math.sin(arcProgress.value * Math.PI) * ARC_HEIGHT;
+    const liftY = -Math.sin(arcProgress.value * Math.PI) * ARC_HEIGHT - 9;
     return {
-      transform: [{ translateX: indicatorX.value - 14 }, { translateY: liftY }],
+      transform: [{ translateX: indicatorX.value - 24 }, { translateY: liftY }],
       backgroundColor: activeColor.value,
     };
   });
 
   return (
-    // position absolute + مسافات من الجوانب والأسفل = عائمة فوق المحتوى، مش لاصقة تحت
     <View style={{ position: 'absolute', left: 16, right: 16, bottom: 28 }} className='flex-row bg-zinc-900/95 border border-white/10 rounded-full px-2 py-3 shadow-2xl'>
-      <Animated.View pointerEvents='none' style={[{ position: 'absolute', top: -2, right: 0, width: 28, height: 28, borderRadius: 14 }, indicatorStyle]} />
+      <Animated.View pointerEvents='none' style={[{ position: 'absolute', top: -2, right: 0, width: 45, height: 45, borderRadius: 22.5, index: 1, borderWidth: 2 }, indicatorStyle]} className='border-white/30' />
 
       {state.routes.map((route, index) => {
         const isFocused = state.index === index;
@@ -425,10 +352,12 @@ const Navigation = ({ state, navigation }) => {
             onLayout={e => {
               const { x, width } = e.nativeEvent.layout;
               tabPositions.current[index] = x + width / 2;
-              setMeasuredCount(c => c + 1);
+              if (!isReady && tabPositions.current.filter(p => p != null).length === TABS.length) {
+                setIsReady(true);
+              }
             }}
             className='flex-1 items-center justify-center'>
-            <Ionicons name={tab.icon} size={20} color={isFocused ? tab.color : 'rgba(255,255,255,0.4)'} />
+            <Ionicons name={tab.icon} size={28} color={isFocused ? tab.color : 'rgba(255,255,255,0.4)'} className={`${isFocused ? '-translate-y-4' : 'translate-y-0'} transition-transform duration-300 ease-in-out`} />
           </Pressable>
         );
       })}
@@ -694,67 +623,138 @@ export const ReceivedReports = ({ reports }) => {
 </file>
 
 <file path="src/client/components/Setting.jsx">
-import React from 'react'
-import { Pressable, Text, View } from 'react-native'
-import FontAwesome from '@expo/vector-icons/FontAwesome'
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Modal, Pressable, Text, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 const Setting = ({ isOpen, onClose }) => {
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const [isVisible, setIsVisible] = useState(isOpen);
+  const translateX = useRef(new Animated.Value(width)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (isOpen) {
+      setIsVisible(true);
+      translateX.setValue(width);
+      backdropOpacity.setValue(0);
+
+      Animated.parallel([
+        Animated.timing(translateX, {
+          toValue: 0,
+          duration: 350,
+          useNativeDriver: true,
+        }),
+        Animated.timing(backdropOpacity, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(translateX, {
+          toValue: width,
+          duration: 280,
+          easing: Easing.inOut(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(backdropOpacity, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]).start(({ finished }) => {
+        if (finished) setIsVisible(false);
+      });
+    }
+  }, [backdropOpacity, isOpen, translateX, width]);
+
+  if (!isVisible) return null;
+
   return (
-    <View 
-      className={`fixed top-0 bottom-0 left-0 w-[80%] bg-zinc-900 border-r border-zinc-800 p-6 pt-6 z-50 transform transition-transform duration-500 ease-in-out rounded-r-2xl flex flex-col justify-between overflow-hidden
-        ${isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}`}
-    >
+    <Modal transparent visible={isVisible} animationType='none' statusBarTranslucent onRequestClose={onClose}>
+      <View className='flex-1 relative'>
+        <Animated.View 
+          className='absolute inset-0 bg-zinc-900/60' 
+          style={{ opacity: backdropOpacity }}
+        >
+          <Pressable className='w-full h-full' onPress={onClose} />
+        </Animated.View>
 
-      <View>
-        <View className='flex-row items-center justify-between mb-8'>
-          <Text className='text-2xl font-bold text-white'>الإعدادات</Text>
-          <Pressable onPress={onClose} className='text-zinc-400 hover:text-white bg-zinc-800/60 rounded-full w-10 h-10 flex items-center justify-center active:scale-95 transition-all'>
-            <FontAwesome name='times' size={14} color='#d4d4d8' />
-          </Pressable>
-        </View>
+        <Animated.View
+          className='absolute left-0 top-0 bottom-0 h-full w-[82%] bg-zinc-900 border-l border-zinc-800 px-6 rounded-l-2xl flex flex-col justify-between overflow-hidden z-10'
+          style={[
+            {
+              paddingTop: insets.top + 24,
+              paddingBottom: Math.max(insets.bottom, 24),
+              transform: [{ translateX }],
+            },
+          ]}>
+          <View>
+            {/* الهيدر */}
+            <View className='flex-row items-center justify-between mb-8'>
+              <Text className='text-2xl font-bold text-white'>الإعدادات</Text>
+              <Pressable 
+                onPress={onClose} 
+                className='bg-zinc-800/60 rounded-full w-10 h-10 flex items-center justify-center active:scale-95'
+              >
+                <FontAwesome name='times' size={14} color='#d4d4d8' />
+              </Pressable>
+            </View>
 
-        <View className='flex flex-col gap-3'>
-          <Pressable className='w-full p-4 bg-zinc-800/40 border border-zinc-800/30 text-right rounded-xl flex-row justify-between items-center transition-all active:scale-[0.99]'>
-            <Text className='font-medium'>اللغة</Text>
-            <Text className='text-zinc-500 text-sm'>العربية</Text>
-          </Pressable>
-          <Pressable className='w-full p-4 bg-zinc-800/40 border border-zinc-800/30 text-right rounded-xl flex-row justify-between items-center transition-all active:scale-[0.99]'>
-            <Text className='font-medium'>الوضع الداكن</Text>
-            <Text className='text-green-500 text-sm'>مفعل</Text>
-          </Pressable>
-          <Pressable className='w-full p-4 bg-zinc-800/40 border border-zinc-800/30 text-right rounded-xl flex-row justify-between items-center transition-all active:scale-[0.99]'>
-            <Text className='font-medium'>التنببهات</Text>
-            <Text className='text-zinc-500'>›</Text>
-          </Pressable>
-          <Pressable className='w-full p-4 bg-zinc-800/40 border border-zinc-800/30 text-right rounded-xl flex-row justify-between items-center transition-all active:scale-[0.99]'>
-            <Text className='font-medium'>تغيير كلمة المرور</Text>
-            <Text className='text-zinc-500'>›</Text>
-          </Pressable>
-          <Pressable className='w-full p-4 bg-zinc-800/40 border border-zinc-800/30 text-right rounded-xl flex-row justify-between items-center transition-all active:scale-[0.99]'>
-            <Text className='font-medium'>مساعدة ودعم</Text>
-            <Text className='text-zinc-500'>›</Text>
-          </Pressable>
-        </View>
+            {/* الخيارات */}
+            <View className='flex flex-col gap-3'>
+              <Pressable className='w-full p-4 bg-zinc-800/40 border border-zinc-800/30 rounded-xl flex-row justify-between items-center active:scale-[0.99]'>
+                <Text className='font-medium text-white'>اللغة</Text>
+                <Text className='text-zinc-500 text-sm'>العربية</Text>
+              </Pressable>
+
+              <Pressable className='w-full p-4 bg-zinc-800/40 border border-zinc-800/30 rounded-xl flex-row justify-between items-center active:scale-[0.99]'>
+                <Text className='font-medium text-white'>الوضع الداكن</Text>
+                <Text className='text-green-500 text-sm'>مفعل</Text>
+              </Pressable>
+
+              <Pressable className='w-full p-4 bg-zinc-800/40 border border-zinc-800/30 rounded-xl flex-row justify-between items-center active:scale-[0.99]'>
+                <Text className='font-medium text-white'>التنبيهات</Text>
+                <Text className='text-zinc-500'>›</Text>
+              </Pressable>
+
+              <Pressable className='w-full p-4 bg-zinc-800/40 border border-zinc-800/30 rounded-xl flex-row justify-between items-center active:scale-[0.99]'>
+                <Text className='font-medium text-white'>تغيير كلمة المرور</Text>
+                <Text className='text-zinc-500'>›</Text>
+              </Pressable>
+
+              <Pressable className='w-full p-4 bg-zinc-800/40 border border-zinc-800/30 rounded-xl flex-row justify-between items-center active:scale-[0.99]'>
+                <Text className='font-medium text-white'>مساعدة ودعم</Text>
+                <Text className='text-zinc-500'>›</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          {/* الجزء السفلي */}
+          <View className='flex flex-col gap-4 items-center w-full'>
+            <View className='flex-row justify-between items-center w-full gap-4'>
+              <Pressable className='flex-1 p-3 bg-zinc-800 border border-zinc-700 rounded-xl active:scale-95 items-center justify-center'>
+                <Text className='text-red-500 font-medium text-center text-sm'>تسجيل الخروج</Text>
+              </Pressable>
+
+              <Pressable className='flex-1 p-3 bg-red-950/30 border border-red-900/40 rounded-xl active:scale-95 items-center justify-center'>
+                <Text className='text-red-400 font-medium text-center text-xs'>حذف الحساب</Text>
+              </Pressable>
+            </View>
+
+            <Text className='text-xs text-zinc-600 font-mono tracking-wider'>نسخة 1.0.0</Text>
+          </View>
+        </Animated.View>
       </View>
+    </Modal>
+  );
+};
 
-      <View className='flex flex-col gap-4 items-center w-full'>
-        <View className='flex-row justify-between items-center w-full gap-4 text-sm'>
-          <Pressable className='flex-1 p-3 bg-zinc-800 border border-zinc-700 text-red-500 font-medium rounded-xl active:scale-95 transition-all text-center'>
-            <Text className='text-red-500 font-medium text-center'>تسجيل الخروج</Text>
-          </Pressable>
-          <Pressable className='flex-1 p-3 bg-red-950/30 border border-red-900/40 text-red-400 font-medium rounded-xl active:scale-95 transition-all text-center text-xs'>
-            <Text className='text-red-400 font-medium text-center text-xs'>حذف الحساب</Text>
-          </Pressable>
-        </View>
-
-        <Text className='text-xs text-zinc-600 font-mono tracking-wider'>نسخة 1.0.0</Text>
-      </View>
-
-    </View>
-  )
-}
-
-export default Setting
+export default Setting;
 </file>
 
 <file path="src/client/components/Tag.jsx">
@@ -781,21 +781,12 @@ const Tag = ({ children, icon, color = 'blue', pulse = false, className = '' }) 
 export default Tag
 </file>
 
-<file path="src/client/components/Wallet.jsx">
-import React from 'react'
-import { Pressable, Text } from 'react-native'
-import FontAwesome from '@expo/vector-icons/FontAwesome'
+<file path="src/client/hooks/useLiveLocation.js">
 
-const Wallet = () => {
-	return (
-		<Pressable className='text-white bg-zinc-800 rounded-full px-4 h-14 flex-row items-center justify-center gap-2 shadow-lg z-20 shrink-0'>
-			<FontAwesome name='money' size={16} color='#4ade80' />
-			<Text className='font-semibold'>$100</Text>
-		</Pressable>
-	)
-}
+</file>
 
-export default Wallet
+<file path="src/client/hooks/useTrackParty.js">
+
 </file>
 
 <file path="src/client/screens/EditProfile.jsx">
@@ -923,22 +914,75 @@ export default History
 </file>
 
 <file path="src/client/screens/Home.jsx">
-import React from 'react'
-import { Pressable, Text, View } from 'react-native'
+import React, { useEffect, useState } from 'react'
+import { ActivityIndicator, Pressable, Text, View, ImageBackground } from 'react-native'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import Header from '../components/Header'
 import { useNavigation } from '@react-navigation/native'
+import client from '../../api/client'
 
 
 const ClientHome = () => {
 	const navigation = useNavigation()
+	const [leaderboard, setLeaderboard] = useState([])
+	const [loadingLeaderboard, setLoadingLeaderboard] = useState(true)
+	const [leaderboardError, setLeaderboardError] = useState('')
+
+	useEffect(() => {
+		let mounted = true
+
+		const loadLeaderboard = async () => {
+			try {
+				setLoadingLeaderboard(true)
+				setLeaderboardError('')
+				const response = await client.get('/leaderboard')
+				if (!mounted) return
+				setLeaderboard(response.data?.data?.currentWeek?.top10 ?? [])
+			} catch (error) {
+				if (!mounted) return
+				setLeaderboardError('تعذر تحميل الليدر بورد حالياً')
+			} finally {
+				if (mounted) setLoadingLeaderboard(false)
+			}
+		}
+
+		loadLeaderboard()
+
+		return () => {
+			mounted = false
+		}
+	}, [])
+
 	return (
-		<View className='flex-1 bg-zinc-950 text-white'>
+		<ImageBackground source={require('../../../assets/images/loginBg3.jpg')} resizeMode='cover' className='flex-1 z-0'>
 			<Header />
+			<View className="absolute inset-0 w-full h-full bg-black/50 z-1"></View>
 			<View className='flex-1 flex flex-col p-4 pt-20 gap-4'>
 				<View className='bg-zinc-900 border border-emerald-500/30 rounded-3xl p-4 shadow-lg w-full'>
-					<Text className='text-white font-bold mb-2'>لا توجد رحلة نشطة الآن</Text>
-					<Text className='text-zinc-400 text-sm'>يمكنك بدء طلب رحلة جديدة من الشاشة المخصصة.</Text>
+					<Text className='text-white font-bold mb-3 text-lg'>الليدر بورد</Text>
+					{loadingLeaderboard ? (
+						<View className='items-center justify-center py-6'>
+							<ActivityIndicator color='#34d399' />
+						</View>
+					) : leaderboardError ? (
+						<Text className='text-zinc-400 text-sm'>{leaderboardError}</Text>
+					) : leaderboard.length ? (
+						<View className='gap-3'>
+							{leaderboard.slice(0, 5).map(item => (
+								<View key={`${item.id}-${item.rank}`} className='flex-row items-center justify-between rounded-2xl bg-zinc-800/80 px-4 py-3 border border-white/5'>
+									<View className='flex-row items-center gap-3'>
+										<View className='h-9 w-9 items-center justify-center rounded-full bg-emerald-500/15'>
+											<Text className='text-emerald-400 font-bold'>{item.rank}</Text>
+										</View>
+										<Text className='text-white font-semibold'>{item?.user?.name ?? 'مستخدم'}</Text>
+									</View>
+									<Text className='text-zinc-300 font-bold'>{item.tripCount} رحلة</Text>
+								</View>
+							))}
+						</View>
+					) : (
+						<Text className='text-zinc-400 text-sm'>لا توجد بيانات لليدر بورد حالياً.</Text>
+					)}
 				</View>
 
 				<View className='flex-1 flex flex-col items-center justify-center gap-4'>
@@ -950,7 +994,7 @@ const ClientHome = () => {
 				</View>
 			</View>
 
-		</View>
+		</ImageBackground>
 	)
 }
 
@@ -961,7 +1005,6 @@ export default ClientHome
 import React, { useState } from 'react'
 import { Image, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
-import Wallet from '../components/Wallet'
 import ProfileSections from '../components/ProfileSections'
 import Setting from '../components/Setting'
 
@@ -980,7 +1023,6 @@ const ClientProfile = () => {
 	return (
 		<SafeAreaView className='flex-1 bg-zinc-950 text-white' dir='rtl'>
 			<View className='fixed top-0 left-0 right-0 p-4 z-40 text-xs flex-row items-center justify-between bg-gray-800/80 backdrop-blur-md'>
-				<Wallet />
 				<Pressable onPress={() => setIsSettingOpen(true)} className='text-white bg-zinc-800 rounded-full h-14 w-14 flex items-center justify-center shadow-lg active:scale-95 transition-all'>
 					<FontAwesome name='gear' size={16} color='#a1a1aa' />
 				</Pressable>
@@ -1016,7 +1058,6 @@ const ClientProfile = () => {
 				</View>
 			</ScrollView>
 
-			{isSettingOpen && <View className='fixed inset-0 z-50 bg-black/50 backdrop-blur-sm' />}
 			<Setting isOpen={isSettingOpen} onClose={() => setIsSettingOpen(false)} />
 		</SafeAreaView>
 	)
@@ -1026,37 +1067,42 @@ export default ClientProfile
 </file>
 
 <file path="src/client/screens/RequestTrip.jsx">
-import React, { useState } from 'react'
-import { Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native'
-import MapComponent from '../components/MapComponent'
-import TripPlannerPanel from '../components/trip/TripPlannerPanel'
-import TripStatusPanel from '../components/trip/TripStatusPanel'
+import {useDispatch, useState} from 'react-redux'
+import {getRouteRequest} from '../../api/routing.api'
+import TripRouteMap from '../components/map/TripRouteMap'
 
 const RequestTrip = () => {
-	const [currentTrip, setCurrentTrip] = useState({
-		status: 'idle',
-		startPin: { lat: 30.0444, lng: 31.2357, name: 'ميدان رمسيس' },
-		endPin: { lat: 30.1211, lng: 31.3452, name: 'مدينة نصر' },
-		waypoints: [],
-		route: { coordinates: [], distanceKm: 12.3, durationMin: 26, price: 53 },
-		price: 53,
-		driverName: 'أحمد منصور',
-		car: 'فيرنا فيراني',
-	})
+	const dispatch = useDispatch()
+	const [tripDraft, setTripDraft] = useState({ startPin: null, endPin: null, waypoints: [], route: null })
+	const [pickTarget, setPickTarget] = useState('start')
 
-	const [requesting, setRequesting] = useState(false)
-	const offers = [
-		{ id: 'o_1', driverName: 'أحمد منصور', rate: 4.8, car: 'فيرنا فيراني', timeToReach: '4 دقائق', price: 50 },
-		{ id: 'o_2', driverName: 'إسلام علوان', rate: 4.9, car: 'لانوس بيضاء', timeToReach: '6 دقائق', price: 55 },
-	]
+	const handleMapPress = (coord) => {
+		const pin = { lat: coord.latitude, lng: coord.longitude, name: '...' }
+		setTripDraft(prev => {
+			if (pickTarget === 'start') return { ...prev, startPin: pin }
+			if (pickTarget === 'end') return { ...prev, endPin: pin }
+			return { ...prev, waypoints: [...prev.waypoints, pin] }
+		})
+	}
+
+	useEffect(() => {
+		if (!tripDraft.startPin || !tripDraft.endPin) return
+		const points = [tripDraft.startPin, ...tripDraft.waypoints, tripDraft.endPin]
+		getRouteRequest(points).then(res => setTripDraft(prev => ({ ...prev, route: res.data })))
+	}, [tripDraft.startPin, tripDraft.endPin, tripDraft.waypoints])
+
+	const handleConfirm = () => {
+		dispatch(requestTrip({ ...tripDraft, clientId, price: tripDraft.route?.price }))
+	}
 
 	return (
-		<SafeAreaView className='w-full flex-1 bg-zinc-950 text-white overflow-hidden'>
-			<View className='flex-1 relative'>
-				<MapComponent startPin={currentTrip.startPin} endPin={currentTrip.endPin} waypoints={currentTrip.waypoints} routeCoords={currentTrip.route?.coordinates} />
-				<TripPlannerPanel trip={currentTrip} requesting={requesting} isTripSaved={false} onToggleSaveTrip={() => {}} onConfirm={() => setRequesting(true)} />
-				<TripStatusPanel trip={{ ...currentTrip, status: 'pending' }} offers={offers} onAccept={() => {}} onCancel={() => setRequesting(false)} onFinish={() => setRequesting(false)} />
-			</View>
+		<SafeAreaView className='flex-1'>
+			<TripRouteMap
+				startPin={tripDraft.startPin} endPin={tripDraft.endPin} waypoints={tripDraft.waypoints}
+				routeCoordinates={tripDraft.route?.coordinates || []}
+				onMapPress={handleMapPress} pickTarget={pickTarget}
+			/>
+			<Pressable onPress={handleConfirm}><Text>تأكيد الطلب</Text></Pressable>
 		</SafeAreaView>
 	)
 }
@@ -1318,31 +1364,12 @@ const ClientSignUp = ({ navigation }) => {
 export default ClientSignUp;
 </file>
 
-<file path="src/modal/modal.tsx">
-import {Modal, View, Text, Pressable} from 'react-native';
-import React from 'react';
+<file path="src/client/services/place.service.js">
 
+</file>
 
-export default function CustomModal({visible, onClose, title, message}) {
-	return (
-		<Modal	
-			animationType="fade"
-			transparent={true}
-			visible={visible}
-			onRequestClose={onClose}
-		>
-			<View className="flex-1 items-center justify-center bg-black bg-opacity-50">
-				<View className="bg-white rounded-lg p-4">
-					<Text className="text-lg font-bold">{title}</Text>
-					<Text className="text-gray-600 mt-2">{message}</Text>
-					<Pressable onPress={onClose} className="mt-4 bg-blue-500 rounded-lg py-2 px-4">
-						<Text className="text-white text-center">اغلاق</Text>
-					</Pressable>
-				</View>
-			</View>
-		</Modal>
-	);
-}
+<file path="src/client/services/socket.service.js">
+
 </file>
 
 <file path="src/navigation/AuthNavigator.tsx">
@@ -1954,10 +1981,10 @@ export const distanceMeters = (pointA, pointB) => {
 
 <file path="src/redux/store.tsx">
 import { configureStore } from '@reduxjs/toolkit';
-import authReducer from './/slices/client/authSlice';
-import tripReducer from './/slices/client/tripSlice';
-import ratesReducer from './/slices/client/ratesSlice';
-import reportReducer from './/slices/client/reportsSlice';
+import authReducer from './slices/client/authSlice';
+import tripReducer from './slices/client/tripSlice';
+import ratesReducer from './slices/client/ratesSlice';
+import reportReducer from './slices/client/reportsSlice';
 
 const store = configureStore({
   reducer: {
@@ -2028,7 +2055,7 @@ const NeonStreaks = ({ width = 200, height = 100, color = '#22D3EE', style }) =>
 export default NeonStreaks
 </file>
 
-<file path="src/shared/screens/Login.tsx">
+<file path="src/shared/screens/Login.jsx">
 import React, { useEffect, useRef, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -2122,6 +2149,8 @@ export default function Login({ navigation }) {
 
   return (
     <SafeAreaView className='flex-1 bg-black'>
+			<View className="absolute inset-0 w-full h-full bg-black/50 z-1"></View>
+			
       <StatusBar style='light' />
 
       <Pressable className='absolute top-16 left-4 z-20 flex-row items-center gap-1 rounded-full bg-white/10 px-3 py-2 border border-white/15' onPress={() => {}}>
@@ -2225,121 +2254,8 @@ export default function Login({ navigation }) {
 }
 </file>
 
-<file path="App.tsx">
-import './src/global.css';
-import { useEffect } from 'react';
-import { I18nManager, View, ActivityIndicator } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Provider, useDispatch, useSelector } from 'react-redux';
-import store from './src/redux/store';
-import RootNavigator from './src/navigation/RootNavigator';
-import { restoreSession } from './src/redux/slices/client/authSlice';
+<file path="src/shared/screens/TripTrackingScreen.jsx">
 
-I18nManager.allowRTL(true);
-I18nManager.forceRTL(true);
-
-function AppContent() {
-  const dispatch = useDispatch();
-  const sessionChecked = useSelector(state => state.auth.sessionChecked);
-
-  useEffect(() => {
-    dispatch(restoreSession());
-  }, []);
-
-  if (!sessionChecked) {
-    return (
-      <View className='flex-1 items-center justify-center bg-black'>
-        <ActivityIndicator size='large' color='#22D3EE' />
-      </View>
-    );
-  }
-
-  return <RootNavigator />;
-}
-
-export default function App() {
-  return (
-    <SafeAreaProvider>
-      <Provider store={store}>
-        <AppContent />
-      </Provider>
-    </SafeAreaProvider>
-  );
-}
-</file>
-
-<file path="babel.config.js">
-module.exports = function (api) {
-  api.cache(true);
-  return {
-    presets: [
-      ['babel-preset-expo', { jsxImportSource: 'nativewind' }],
-      'nativewind/babel',
-    ],
-    plugins: ['react-native-worklets/plugin'], // الاسم الصح للـ plugin في reanimated v4 (لازم يفضل آخر واحد)
-  };
-};
-</file>
-
-<file path="eas.json">
-{
-  "cli": {
-    "version": ">= 18.11.0",
-    "appVersionSource": "remote"
-  },
-  "build": {
-    "development": {
-      "developmentClient": true,
-      "distribution": "internal"
-    },
-    "preview": {
-      "distribution": "internal"
-    },
-    "production": {
-      "autoIncrement": true
-    }
-  },
-  "submit": {
-    "production": {}
-  }
-}
-</file>
-
-<file path="global.d.ts">
-declare module '*.css'
-</file>
-
-<file path="metro.config.js">
-const { getDefaultConfig } = require("expo/metro-config");
-const { withNativeWind } = require("nativewind/metro");
-
-const config = getDefaultConfig(__dirname);
-
-module.exports = withNativeWind(config, { input: "./src/global.css" });
-</file>
-
-<file path="nativewind-env.d.ts">
-/// <reference types="nativewind/types" />
-
-// NOTE: This file should not be edited and should be committed with your source code. It is generated by NativeWind.
-</file>
-
-<file path="tailwind.config.js">
-/** @type {import('tailwindcss').Config} */
-module.exports = {
-  content: ["./App.{js,jsx,ts,tsx}", "./src/**/*.{js,jsx,ts,tsx}"],
-  presets: [require("nativewind/preset")],
-  theme: { extend: {} },
-  plugins: [],
-}
-</file>
-
-<file path=".claude/settings.json">
-{
-  "enabledPlugins": {
-    "expo@claude-plugins-official": true
-  }
-}
 </file>
 
 <file path="src/global.css">
@@ -2440,8 +2356,92 @@ Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before 
 }
 </file>
 
+<file path="App.tsx">
+import './src/global.css';
+import { useEffect } from 'react';
+import { I18nManager, View, ActivityIndicator } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Provider, useDispatch, useSelector } from 'react-redux';
+import store from './src/redux/store';
+import RootNavigator from './src/navigation/RootNavigator';
+import { restoreSession } from './src/redux/slices/client/authSlice';
+
+I18nManager.allowRTL(true);
+I18nManager.forceRTL(true);
+
+function AppContent() {
+  const dispatch = useDispatch();
+  const sessionChecked = useSelector(state => state.auth.sessionChecked);
+
+  useEffect(() => {
+    dispatch(restoreSession());
+  }, []);
+
+  if (!sessionChecked) {
+    return (
+      <View className='flex-1 items-center justify-center bg-black'>
+        <ActivityIndicator size='large' color='#22D3EE' />
+      </View>
+    );
+  }
+
+  return <RootNavigator />;
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <Provider store={store}>
+        <AppContent />
+      </Provider>
+    </SafeAreaProvider>
+  );
+}
+</file>
+
+<file path="babel.config.js">
+module.exports = function (api) {
+  api.cache(true);
+  return {
+    presets: [
+      ['babel-preset-expo', { jsxImportSource: 'nativewind' }],
+      'nativewind/babel',
+    ],
+    plugins: ['react-native-worklets/plugin'], // الاسم الصح للـ plugin في reanimated v4 (لازم يفضل آخر واحد)
+  };
+};
+</file>
+
 <file path="CLAUDE.md">
 @AGENTS.md
+</file>
+
+<file path="eas.json">
+{
+  "cli": {
+    "version": ">= 18.11.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal"
+    },
+    "production": {
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
+</file>
+
+<file path="global.d.ts">
+declare module '*.css'
 </file>
 
 <file path="LICENSE">
@@ -2466,6 +2466,21 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+</file>
+
+<file path="metro.config.js">
+const { getDefaultConfig } = require("expo/metro-config");
+const { withNativeWind } = require("nativewind/metro");
+
+const config = getDefaultConfig(__dirname);
+
+module.exports = withNativeWind(config, { input: "./src/global.css" });
+</file>
+
+<file path="nativewind-env.d.ts">
+/// <reference types="nativewind/types" />
+
+// NOTE: This file should not be edited and should be committed with your source code. It is generated by NativeWind.
 </file>
 
 <file path="package.json">
@@ -2517,7 +2532,10 @@ SOFTWARE.
     "react-redux": "^9.3.0"
   },
   "devDependencies": {
+    "@expo/ngrok": "^4.1.3",
     "@types/react": "~19.2.2",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~57.0.0",
     "tailwindcss": "^3.3.2",
     "typescript": "~6.0.3"
   },
@@ -2591,6 +2609,16 @@ Join our community of developers creating universal apps.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
 </file>
 
+<file path="tailwind.config.js">
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: ["./App.{js,jsx,ts,tsx}", "./src/**/*.{js,jsx,ts,tsx}"],
+  presets: [require("nativewind/preset")],
+  theme: { extend: {} },
+  plugins: [],
+}
+</file>
+
 <file path="tsconfig.json">
 {
   "extends": "expo/tsconfig.base",
@@ -2609,7 +2637,7 @@ Join our community of developers creating universal apps.
     "**/*.ts",
     "**/*.tsx",
     "nativewind-env.d.ts"
-  ]
+, "src/shared/screens/TripTrackingScreen.jsx", "src/shared/screens/Login.jsx"  ]
 }
 </file>
 

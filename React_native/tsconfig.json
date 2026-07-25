@@ -15,5 +15,5 @@
     "**/*.ts",
     "**/*.tsx",
     "nativewind-env.d.ts"
-  ]
+, "src/shared/screens/TripTrackingScreen.jsx", "src/shared/screens/Login.jsx"  ]
 }

@@ -1,34 +1,41 @@
-import React, { useState } from 'react'
-import { Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native'
-import MapComponent from '../components/MapComponent'
-import TripPlannerPanel from '../components/trip/TripPlannerPanel'
-import TripStatusPanel from '../components/trip/TripStatusPanel'
+import {useDispatch} from 'react-redux'
+import {useState , useEffect} from 'react'
+import {getRouteRequest} from '../../api/routing.api'
+import { SafeAreaView, Pressable, Text } from 'react-native'
+import TripRouteMap from '../components/map/TripRouteMap'
 
 const RequestTrip = () => {
-	const [currentTrip, setCurrentTrip] = useState({
-		status: 'idle',
-		startPin: { lat: 30.0444, lng: 31.2357, name: 'ميدان رمسيس' },
-		endPin: { lat: 30.1211, lng: 31.3452, name: 'مدينة نصر' },
-		waypoints: [],
-		route: { coordinates: [], distanceKm: 12.3, durationMin: 26, price: 53 },
-		price: 53,
-		driverName: 'أحمد منصور',
-		car: 'فيرنا فيراني',
-	})
+	const dispatch = useDispatch()
+	const [tripDraft, setTripDraft] = useState({ startPin: null, endPin: null, waypoints: [], route: null })
+	const [pickTarget, setPickTarget] = useState('start')
 
-	const [requesting, setRequesting] = useState(false)
-	const offers = [
-		{ id: 'o_1', driverName: 'أحمد منصور', rate: 4.8, car: 'فيرنا فيراني', timeToReach: '4 دقائق', price: 50 },
-		{ id: 'o_2', driverName: 'إسلام علوان', rate: 4.9, car: 'لانوس بيضاء', timeToReach: '6 دقائق', price: 55 },
-	]
+	const handleMapPress = (coord) => {
+		const pin = { lat: coord.latitude, lng: coord.longitude, name: '...' }
+		setTripDraft(prev => {
+			if (pickTarget === 'start') return { ...prev, startPin: pin }
+			if (pickTarget === 'end') return { ...prev, endPin: pin }
+			return { ...prev, waypoints: [...prev.waypoints, pin] }
+		})
+	}
+
+	useEffect(() => {
+		if (!tripDraft.startPin || !tripDraft.endPin) return
+		const points = [tripDraft.startPin, ...tripDraft.waypoints, tripDraft.endPin]
+		getRouteRequest(points).then(res => setTripDraft(prev => ({ ...prev, route: res.data })))
+	}, [tripDraft.startPin, tripDraft.endPin, tripDraft.waypoints])
+
+	const handleConfirm = () => {
+		dispatch(requestTrip({ ...tripDraft, clientId, price: tripDraft.route?.price }))
+	}
 
 	return (
-		<SafeAreaView className='w-full flex-1 bg-zinc-950 text-white overflow-hidden'>
-			<View className='flex-1 relative'>
-				<MapComponent startPin={currentTrip.startPin} endPin={currentTrip.endPin} waypoints={currentTrip.waypoints} routeCoords={currentTrip.route?.coordinates} />
-				<TripPlannerPanel trip={currentTrip} requesting={requesting} isTripSaved={false} onToggleSaveTrip={() => {}} onConfirm={() => setRequesting(true)} />
-				<TripStatusPanel trip={{ ...currentTrip, status: 'pending' }} offers={offers} onAccept={() => {}} onCancel={() => setRequesting(false)} onFinish={() => setRequesting(false)} />
-			</View>
+		<SafeAreaView className='flex-1'>
+			<TripRouteMap
+				startPin={tripDraft.startPin} endPin={tripDraft.endPin} waypoints={tripDraft.waypoints}
+				routeCoordinates={tripDraft.route?.coordinates || []}
+				onMapPress={handleMapPress} pickTarget={pickTarget}
+			/>
+			<Pressable onPress={handleConfirm}><Text>تأكيد الطلب</Text></Pressable>
 		</SafeAreaView>
 	)
 }

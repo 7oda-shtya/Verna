@@ -38,8 +38,9 @@ const ClientHome = () => {
 	}, [])
 
 	return (
-		<ImageBackground source={require('../../../assets/images/loginBg3.jpg')} resizeMode='cover' className='flex-1'>
+		<ImageBackground source={require('../../../assets/images/loginBg3.jpg')} resizeMode='cover' className='flex-1 z-0'>
 			<Header />
+			<View className="absolute inset-0 w-full h-full bg-black/50 z-1"></View>
 			<View className='flex-1 flex flex-col p-4 pt-20 gap-4'>
 				<View className='bg-zinc-900 border border-emerald-500/30 rounded-3xl p-4 shadow-lg w-full'>
 					<Text className='text-white font-bold mb-3 text-lg'>الليدر بورد</Text>
