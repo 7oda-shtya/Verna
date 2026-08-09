@@ -1,6 +1,7 @@
 import { prisma } from '../../db.js';
 import { catchAsync } from '../../utils/catchAsync.js';
 import ApiError from '../../utils/ApiError.js';
+import { applyReportPenalty } from '../../services/penalty.service.js';
 
 export const getPendingReports = catchAsync(async (req, res) => {
 	const reports = await prisma.report.findMany({
@@ -42,40 +43,10 @@ export const checkReport = catchAsync(async (req, res) => {
 
 	const report = await prisma.report.findUnique({ where: { id } });
 	if (!report) throw new ApiError(404, 'التبليغ مش موجود');
-	const updatedReport = await prisma.report.update({ where: { id }, data: { status } });
+	const updatedReport = await prisma.report.update({ where: { id }, data: { status, reviewedAt: new Date() } });
 	const AcceptedReportsCount = await prisma.report.count({ where: { reportedId: report.reportedId, status: 'ACCEPTED' }, });
 
-	if (AcceptedReportsCount === 1) {
-		await prisma.warning.create({
-			data: {
-				userId: report.reportedId,
-				reason: 'تم قبول التبليغ ضدك',
-				reportId: report.id,
-			},
-		});
-
-	} else if (AcceptedReportsCount === 6) {
-		await prisma.user.update({
-			where: { id: report.reportedId },
-			data: { accountStatus: 'BANNED' },
-		});
-	} else if (AcceptedReportsCount > 3) {
-		await prisma.penalty.create({
-			data: {
-				userId: report.reportedId,
-				reportId: report.id,
-				amount: 20,
-			},
-		});
-	} else if (AcceptedReportsCount > 1) {
-		await prisma.penalty.create({
-			data: {
-				userId: report.reportedId,
-				reportId: report.id,
-				amount: 10,
-			},
-		});
-	}
+	await applyReportPenalty(report, AcceptedReportsCount);
 
 	res.status(200).json({ success: true, data: updatedReport });
 });

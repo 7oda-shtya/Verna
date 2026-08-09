@@ -12,7 +12,7 @@ export const getPendingSuggestedLocations = catchAsync(async (req, res) => {
 
 export const reviewSuggestedLocation = catchAsync(async (req, res) => {
 	const { id } = req.params;
-	const { decision } = req.body;
+	const { decision, importance } = req.body;
 
 	const AreaSuggestion = await prisma.areaSuggestion.findUnique({ where: { id } });
 	if (!AreaSuggestion) {
@@ -34,6 +34,7 @@ export const reviewSuggestedLocation = catchAsync(async (req, res) => {
 				lat: AreaSuggestion.lat,
 				lng: AreaSuggestion.lng,
 				name: AreaSuggestion.name,
+				importance: importance ?? null,
 			}
 		});
 		if (approvedCount > 0 && approvedCount % 7 === 0) {
