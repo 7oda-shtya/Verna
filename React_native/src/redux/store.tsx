@@ -1,16 +1,23 @@
 import { configureStore } from '@reduxjs/toolkit';
-import authReducer from './slices/client/authSlice';
-import tripReducer from './slices/client/tripSlice';
-import ratesReducer from './slices/client/ratesSlice';
-import reportReducer from './slices/client/reportsSlice';
+import themeReducer from './slices/client/themeSlice';
+import libraryReducer from './slices/client/librarySlice';
+import { libraryApi } from './services/libraryApi';
+const isDriverApp = process.env.APP_VARIANT === 'driver';
+// Both variants expose the same store keys; only their domain reducers differ.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const authReducer = isDriverApp ? require('./slices/driver/authSlice').default : require('./slices/client/authSlice').default;
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const tripReducer = isDriverApp ? require('./slices/driver/tripSlice').default : require('./slices/client/tripSlice').default;
 
 const store = configureStore({
   reducer: {
     auth: authReducer,
     trip: tripReducer,
-    rates: ratesReducer,
-    reports: reportReducer,
+    theme: themeReducer,
+    library: libraryReducer,
+    [libraryApi.reducerPath]: libraryApi.reducer,
   },
+  middleware: getDefaultMiddleware => getDefaultMiddleware().concat(libraryApi.middleware),
 });
 
 export default store;
