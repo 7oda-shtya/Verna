@@ -2,7 +2,14 @@ import React from 'react'
 import { View } from 'react-native'
 import Svg, { Defs, LinearGradient, RadialGradient, Stop, Line, Circle } from 'react-native-svg'
 
-const NeonStreaks = ({ width = 200, height = 100, color = '#22D3EE', style }) => {
+type NeonStreaksProps = {
+	width?: number
+	height?: number
+	color?: string
+	style?: object
+}
+
+const NeonStreaks = ({ width = 200, height = 100, color = '#22D3EE', style }: NeonStreaksProps) => {
 	return (
 		<View pointerEvents='none' style={[{ width, height, position: 'absolute' }, style]}>
 			<Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
