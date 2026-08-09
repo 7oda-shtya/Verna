@@ -14,7 +14,24 @@ export const authenticate = catchAsync(async (req, res, next) => {
 
   const user = await prisma.user.findUnique({
     where: { id: decoded.userId },
-    select: { id: true, role: true, name: true, accountStatus: true },
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      email: true,
+      role: true,
+      avatar: true,
+      homeAddress: true,
+      officeAddress: true,
+      wallet: true,
+      username: true,
+      avgRating: true,
+      referralCode: true,
+      accountStatus: true,
+      createdAt: true,
+      isPhoneVerified: true,
+      isOnline: true,
+    },
   });
 
   if (!user) throw new ApiError(401, "اليوزر مش موجود");
