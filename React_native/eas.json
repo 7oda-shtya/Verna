@@ -5,14 +5,41 @@
   },
   "build": {
     "development": {
+      "environment": "development",
       "developmentClient": true,
       "distribution": "internal"
     },
+    "client-development": {
+      "extends": "development",
+      "env": { "APP_VARIANT": "client" }
+    },
+    "driver-development": {
+      "extends": "development",
+      "env": { "APP_VARIANT": "driver" }
+    },
     "preview": {
+      "environment": "preview",
       "distribution": "internal"
     },
+    "client-preview": {
+      "extends": "preview",
+      "env": { "APP_VARIANT": "client" }
+    },
+    "driver-preview": {
+      "extends": "preview",
+      "env": { "APP_VARIANT": "driver" }
+    },
     "production": {
+      "environment": "production",
       "autoIncrement": true
+    },
+    "client-production": {
+      "extends": "production",
+      "env": { "APP_VARIANT": "client" }
+    },
+    "driver-production": {
+      "extends": "production",
+      "env": { "APP_VARIANT": "driver" }
     }
   },
   "submit": {

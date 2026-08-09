@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "845762578435",
+    "project_id": "verna-16cae",
+    "storage_bucket": "verna-16cae.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:845762578435:android:121f7ad546e90b1a666636",
+        "android_client_info": {
+          "package_name": "com.shtya.verna.client"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCfDk9MyqrWsbUcqW5l9s-s7TAsnYyOdFU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:845762578435:android:7a1c36dc1a174740666636",
+        "android_client_info": {
+          "package_name": "com.shtya.verna.driver"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCfDk9MyqrWsbUcqW5l9s-s7TAsnYyOdFU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
