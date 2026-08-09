@@ -156,13 +156,17 @@ const tripSlice = createSlice({
      * - passengerCount: عدد الركاب المطلوب
      */
     requestTrip: (state, action) => {
-      const { clientId, price, startTime, pickupDistanceM, farFromPickupNote, scheduledTime, customerNote, passengerCount } = action.payload;
+      const { clientId, serverTripId, startPin, endPin, waypoints, route, price, startTime, pickupDistanceM, farFromPickupNote, scheduledTime, customerNote, passengerCount, paymentMethod, vehicleCategory } = action.payload;
 
       state.currentTrip = {
         ...state.currentTrip,
         status: 'pending',
-        id: `TRIP_${Date.now()}`,
+        id: serverTripId || `TRIP_${Date.now()}`,
         clientId: clientId,
+        startPin: startPin || state.currentTrip.startPin,
+        endPin: endPin || state.currentTrip.endPin,
+        waypoints: waypoints || [],
+        route: route || state.currentTrip.route,
         price: price,
         // وقت الطلب (نص الوقت المعروض) ووقت الإنشاء بصيغة ISO
         requestedStartTime: startTime || new Date().toLocaleTimeString('ar-EG'),
@@ -172,10 +176,36 @@ const tripSlice = createSlice({
         scheduledTime: scheduledTime || null,
         customerNote: customerNote || null,
         passengerCount: passengerCount || state.currentTrip.ridersCount || 1,
+        paymentMethod: paymentMethod || 'cash',
+        vehicleCategory: vehicleCategory || 'economy',
       };
 
       // تفريغ العروض القديمة استعدادًا لطلبات العروض الجديدة
       state.offers = [];
+    },
+
+    hydrateCurrentTrip: (state, action) => {
+      const trip = action.payload;
+      if (!trip) return;
+      state.currentTrip = {
+        ...emptyTrip(),
+        id: trip.id,
+        clientId: trip.clientId,
+        driverId: trip.driverId,
+        driverName: trip.driver?.name || null,
+        car: trip.driver?.car || null,
+        startPin: { lat: trip.startLat, lng: trip.startLng, name: trip.startName },
+        endPin: { lat: trip.endLat, lng: trip.endLng, name: trip.endName },
+        waypoints: Array.isArray(trip.waypoints) ? trip.waypoints : [],
+        route: trip.route || null,
+        status: String(trip.status || 'PENDING').toLowerCase(),
+        price: Number(trip.price) || 0,
+        passengerCount: trip.ridersCount || 1,
+        ridersCount: trip.ridersCount || 1,
+        customerNote: trip.customerNote || null,
+        scheduledTime: trip.scheduledTime || null,
+        createdAt: trip.createdAt || null,
+      };
     },
 
     // acceptOffer يستقبل offer من شاشة العروض ويربط بيانات السائق بالرحلة الحالية.
@@ -221,6 +251,6 @@ const tripSlice = createSlice({
   },
 });
 
-export const { updateStartPin, updateEndPin, addWaypoint, updateWaypoint, removeWaypoint, clearWaypoints, setRoute, saveTrip, removeSavedTrip, loadSavedTrip, suggestAreaName, requestTrip, acceptOffer, cancelTrip, completeTrip, addTripToHistory, clearCurrentTrip } = tripSlice.actions;
+export const { updateStartPin, updateEndPin, addWaypoint, updateWaypoint, removeWaypoint, clearWaypoints, setRoute, saveTrip, removeSavedTrip, loadSavedTrip, suggestAreaName, requestTrip, hydrateCurrentTrip, acceptOffer, cancelTrip, completeTrip, addTripToHistory, clearCurrentTrip } = tripSlice.actions;
 
 export default tripSlice.reducer;
