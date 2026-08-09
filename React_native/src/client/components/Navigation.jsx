@@ -1,84 +1,221 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Pressable, Text } from 'react-native';
+import { ActivityIndicator, View, Pressable, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  interpolateColor,
+} from 'react-native-reanimated';
+import { useTheme } from '../../theme/useTheme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSelector } from 'react-redux';
+import { ACTIVE_TRIP_STATUSES } from '../../redux/slices/client/tripSlice';
 
 const TABS = [
-  { name: 'Home', icon: 'home-outline', color: '#22D3EE', bgColor: '#164E63' }, // Cyan غامق
-  { name: 'History', icon: 'time-outline', color: '#A3E635', bgColor: '#273515' }, // Lime غامق
-  { name: 'Favorites', icon: 'heart-outline', color: '#F472B6', bgColor: '#500724' }, // Pink غامق
-  { name: 'Profile', icon: 'person-outline', color: '#FACC15', bgColor: '#422006' }, // Yellow/Amber غامق
+  { name: 'Home', icon: 'home-outline', activeIcon: 'home', label: 'الرئيسية' },
+  { name: 'History', icon: 'time-outline', activeIcon: 'time', label: 'رحلاتي' },
+  { name: 'Favorites', icon: 'heart-outline', activeIcon: 'heart', label: 'المفضلة' },
+  { name: 'Profile', icon: 'person-outline', activeIcon: 'person', label: 'حسابي' },
 ];
 
-const ARC_HEIGHT = 22;
-const ANIM_DURATION = 400;
+const PILL_H_PADDING = 6;
+const SPRING_CONFIG = { damping: 18, stiffness: 220, mass: 0.7 };
 
+// -------------------- Tab Button --------------------
+const TabButton = ({
+  route,
+  index,
+  isFocused,
+  isPending,
+  disabled,
+  colors,
+  theme,
+  hasActiveTrip,
+  onPress,
+  onLayout,
+}) => {
+  const tab = TABS.find(t => t.name === route.name) ?? TABS[index];
+  const focusProgress = useSharedValue(isFocused ? 1 : 0);
+
+  useEffect(() => {
+    focusProgress.value = withSpring(isFocused ? 1 : 0, SPRING_CONFIG);
+  }, [isFocused, focusProgress]);
+
+  const iconStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + focusProgress.value * 0.14 }],
+  }));
+
+  const labelStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(
+      focusProgress.value,
+      [0, 1],
+      [colors.iconInactive, colors.iconActive],
+    ),
+  }));
+
+  return (
+    <Pressable
+      disabled={disabled}
+      accessibilityRole='tab'
+      accessibilityState={{ selected: isFocused, disabled }}
+      hitSlop={8}
+      onPress={onPress}
+      onLayout={onLayout}
+      style={{ minHeight: 54, opacity: disabled && !isFocused ? 0.55 : 1 }}
+      className='flex-1 items-center justify-center gap-0.5'>
+      <Animated.View style={[{ overflow: 'visible' }, iconStyle]}>
+        {isPending ? (
+          <ActivityIndicator size='small' color={colors.iconActive} />
+        ) : (
+          <Ionicons
+            name={isFocused ? tab.activeIcon : tab.icon}
+            size={24}
+            color={isFocused ? colors.iconActive : colors.iconInactive}
+          />
+        )}
+        {route.name === 'Home' && hasActiveTrip ? (
+          <View
+            pointerEvents='none'
+            style={{
+              position: 'absolute',
+              top: -3,
+              right: -5,
+              width: 8,
+              height: 8,
+              borderRadius: 4,
+              backgroundColor: colors.primary,
+              borderColor: colors.overlay,
+              borderWidth: 1.5,
+            }}
+          />
+        ) : null}
+      </Animated.View>
+      <Animated.Text
+        style={[
+          { ...theme.typography.tiny, fontSize: 12 },
+          labelStyle,
+        ]}>
+        {tab.label}
+      </Animated.Text>
+    </Pressable>
+  );
+};
+
+// -------------------- Navigation --------------------
 const Navigation = ({ state, navigation }) => {
-  const tabPositions = useRef([]);
+  const { theme } = useTheme();
+  const { colors, shadows: elevation } = theme;
+  const insets = useSafeAreaInsets();
+  const currentTripStatus = useSelector(state => state.trip?.currentTrip?.status);
+  const hasActiveTrip = ACTIVE_TRIP_STATUSES.includes(String(currentTripStatus || '').toLowerCase());
+  const tabLayouts = useRef([]);
+  const transitionTimer = useRef(null);
   const [isReady, setIsReady] = useState(false);
+  const [pendingIndex, setPendingIndex] = useState(null);
 
-  const indicatorX = useSharedValue(0);
-  const arcProgress = useSharedValue(0);
-  const activeColor = useSharedValue(TABS[0].bgColor);
-
-  useEffect(() => {
-    if (isReady && tabPositions.current[state.index] != null) {
-      indicatorX.value = tabPositions.current[state.index];
-      activeColor.value = TABS[state.index].bgColor;
-    }
-  }, [isReady]);
+  const pillX = useSharedValue(0);
+  const pillWidth = useSharedValue(0);
 
   useEffect(() => {
-    if (isReady && tabPositions.current[state.index] != null) {
-      indicatorX.value = withTiming(tabPositions.current[state.index], {
-        duration: ANIM_DURATION,
-        easing: Easing.inOut(Easing.quad),
-      });
-      arcProgress.value = 0;
-      arcProgress.value = withTiming(1, { duration: ANIM_DURATION, easing: Easing.linear });
-      activeColor.value = TABS[state.index].bgColor;
+    const layout = tabLayouts.current[state.index];
+    if (isReady && layout) {
+      pillX.value = withSpring(layout.x + PILL_H_PADDING, SPRING_CONFIG);
+      pillWidth.value = withSpring(layout.width - PILL_H_PADDING * 2, SPRING_CONFIG);
     }
-  }, [state.index, isReady]);
+  }, [state.index, isReady, pillX, pillWidth]);
+
+  useEffect(() => {
+    const clearPending = setTimeout(() => setPendingIndex(null), 0);
+    if (transitionTimer.current) clearTimeout(transitionTimer.current);
+    return () => clearTimeout(clearPending);
+  }, [state.index]);
+
+  useEffect(() => () => {
+    if (transitionTimer.current) clearTimeout(transitionTimer.current);
+  }, []);
 
   const handleTabPress = (route, index) => {
     const isFocused = state.index === index;
+    if (pendingIndex !== null) return;
     const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
 
     if (!isFocused && !event.defaultPrevented) {
+      setPendingIndex(index);
       navigation.navigate(route.name);
+      transitionTimer.current = setTimeout(() => setPendingIndex(null), 380);
     }
   };
 
-  const indicatorStyle = useAnimatedStyle(() => {
-    const liftY = -Math.sin(arcProgress.value * Math.PI) * ARC_HEIGHT - 9;
-    return {
-      transform: [{ translateX: indicatorX.value - 24 }, { translateY: liftY }],
-      backgroundColor: activeColor.value,
-    };
-  });
+  const pillStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: pillX.value }],
+    width: pillWidth.value,
+  }));
+
+  // بنفرض LTR على الشريط نفسه بس عشان الـ transform/translateX يفضل متوقع (transform
+  // مش بيتعكس تلقائي مع RTL زي left/right)، وبنعكس ترتيب العرض يدوياً عشان
+  // الشكل النهائي يفضل RTL صح (الرئيسية على اليمين).
+  const orderedRoutes = [...state.routes]
+    .map((route, index) => ({ route, index }))
+    .reverse();
 
   return (
-    <View style={{ position: 'absolute', left: 16, right: 16, bottom: 28 }} className='flex-row bg-zinc-900/95 border border-white/10 rounded-full px-2 py-3 shadow-2xl'>
-      <Animated.View pointerEvents='none' style={[{ position: 'absolute', top: -2, right: 0, width: 45, height: 45, borderRadius: 22.5, index: 1, borderWidth: 2 }, indicatorStyle]} className='border-white/30' />
+    <View
+      style={{
+        position: 'absolute',
+        left: 16,
+        right: 16,
+        bottom: Math.max(insets.bottom + 10, 22),
+        minHeight: 70,
+        overflow: 'visible',
+        backgroundColor: colors.overlay,
+        direction: 'ltr',
+        ...elevation.floating,
+      }}
+      className='flex-row rounded-full px-2 py-2'>
+      <Animated.View
+        pointerEvents='none'
+        style={[
+          {
+            position: 'absolute',
+            top: 6,
+            bottom: 6,
+            borderRadius: 20,
+            backgroundColor: colors.primaryMuted,
+            borderWidth: 1.5,
+            borderColor: colors.borderFocused,
+          },
+          pillStyle,
+        ]}
+      />
 
-      {state.routes.map((route, index) => {
+      {orderedRoutes.map(({ route, index }) => {
         const isFocused = state.index === index;
-        const tab = TABS.find(t => t.name === route.name) ?? TABS[index];
-
         return (
-          <Pressable
+          <TabButton
             key={route.key}
+            route={route}
+            index={index}
+            isFocused={isFocused}
+            isPending={pendingIndex === index}
+            disabled={pendingIndex !== null}
+            colors={colors}
+            theme={theme}
+            hasActiveTrip={hasActiveTrip}
             onPress={() => handleTabPress(route, index)}
             onLayout={e => {
               const { x, width } = e.nativeEvent.layout;
-              tabPositions.current[index] = x + width / 2;
-              if (!isReady && tabPositions.current.filter(p => p != null).length === TABS.length) {
+              tabLayouts.current[index] = { x, width };
+              if (!isReady && tabLayouts.current.filter(Boolean).length === TABS.length) {
                 setIsReady(true);
+                const activeLayout = tabLayouts.current[state.index];
+                if (activeLayout) {
+                  pillX.value = activeLayout.x + PILL_H_PADDING;
+                  pillWidth.value = activeLayout.width - PILL_H_PADDING * 2;
+                }
               }
             }}
-            className='flex-1 items-center justify-center'>
-            <Ionicons name={tab.icon} size={28} color={isFocused ? tab.color : 'rgba(255,255,255,0.4)'} className={`${isFocused ? '-translate-y-4' : 'translate-y-0'} transition-transform duration-300 ease-in-out`} />
-          </Pressable>
+          />
         );
       })}
     </View>
