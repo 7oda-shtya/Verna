@@ -1,0 +1,6 @@
+eas-inspect/
+**/repomix-output.xml
+node_modules/
+.git/
+.expo/
+build/
