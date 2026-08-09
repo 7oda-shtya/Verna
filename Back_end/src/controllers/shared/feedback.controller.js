@@ -3,7 +3,8 @@ import { catchAsync } from '../../utils/catchAsync.js';
 import ApiError from '../../utils/ApiError.js';
 
 export const makeReport = catchAsync(async (req, res) => {
-	const { reportedId, reason, attachment } = req.body;
+	const { reportedId, reason } = req.body;
+	const attachment = req.file?.path || null;
 	const { tripId } = req.params;
 	const reporterId = req.user.id;
 
@@ -71,8 +72,19 @@ export const makeRate = catchAsync(async (req, res) => {
 		throw new ApiError(403, 'مينفعش تقيّم حد مش طرف في الرحلة دي');
 	}
 
-	const rate = await prisma.rate.create({
-		data: { raterId: userId, ratedId, tripId, rateStars, comment },
+	const rate = await prisma.$transaction(async tx => {
+		const createdRate = await tx.rate.create({
+			data: { raterId: userId, ratedId, tripId, rateStars, comment },
+		});
+		const rating = await tx.rate.aggregate({
+			where: { ratedId },
+			_avg: { rateStars: true },
+		});
+		await tx.user.update({
+			where: { id: ratedId },
+			data: { avgRating: rating._avg.rateStars },
+		});
+		return createdRate;
 	});
 
 	res.status(201).json({ success: true, data: rate });
@@ -103,7 +115,8 @@ export const getReceivedRates = catchAsync(async (req, res) => {
 });
 
 export const support = catchAsync(async (req, res) => {
-	const { attachment, message } = req.body;
+	const { message } = req.body;
+	const attachment = req.file?.path || null;
 	const userId = req.user.id;
 	if (!message) {
 		throw new ApiError(400, 'البيانات المطلوبة ناقصة');
@@ -111,5 +124,5 @@ export const support = catchAsync(async (req, res) => {
 	const supportRequest = await prisma.supportMessage.create({
 		data: { userId, attachment, message },
 	});
-	res.status(200).json({ success: true, data: 'تم الإرسال بنجاح' });
+	res.status(200).json({ success: true, data: 'تم إرسال الرسالة بنجاح وهيتم حل المشكلة في أسرع وقت' });
 });
