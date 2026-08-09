@@ -4,3 +4,4 @@ node_modules
 
 /generated/prisma
 /auth_info_baileys
+repomix-output.xml

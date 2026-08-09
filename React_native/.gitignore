@@ -5,6 +5,7 @@ node_modules/
 
 # Expo
 .expo/
+.expo-*-check/
 dist/
 web-build/
 expo-env.d.ts
@@ -41,3 +42,4 @@ example
 # generated native folders
 /ios
 /android
+repomix-output.xml
