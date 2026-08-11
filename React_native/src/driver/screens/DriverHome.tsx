@@ -29,8 +29,10 @@ export default function DriverHome() {
     let unsubscribers: (() => void)[] = [];
     let cancelled = false;
 
+    const resubscribe = () => { emit('drivers:subscribe').catch(() => {}); };
     emit('drivers:subscribe').catch(() => {});
     Promise.all([
+      on('connect', resubscribe),
       on('ride:new', (trip: any) => dispatch(upsertAvailableTrip(trip))),
       on('ride:taken', ({ tripId }: any) => dispatch(removeAvailableTrip(tripId))),
       on('ride:cancelled', ({ tripId }: any) => dispatch(removeAvailableTrip(tripId))),
