@@ -220,6 +220,10 @@ export default function TripTrackingScreen({ route, navigation }) {
           lng: location.coords.longitude,
         }}
         partyLocation={partyLocation}
+        driverLocation={isDriver
+          ? (location?.coords && { lat: location.coords.latitude, lng: location.coords.longitude })
+          : partyLocation}
+        showRouteDeviation={['BOOKED', 'STARTED'].includes(status)}
       />
 
       <View

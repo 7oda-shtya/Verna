@@ -27,8 +27,37 @@ const IMPORTANT_FILTER = ['>', ['coalesce', ['get', 'importance'], 0], 0];
 const REGULAR_FILTER = ['<=', ['coalesce', ['get', 'importance'], 0], 0];
 const PRESS_PULSE_RADIUS_M = 100;
 const PRESS_PULSE_DURATION_MS = 1500;
+const DEVIATION_RECOMPUTE_MS = 2000;
+const OFF_ROUTE_DISTANCE_M = 60;
+const OFF_ROUTE_SAMPLES_REQUIRED = 3;
 
 const toLngLat = point => [point.lng, point.lat];
+
+const toRoutePoint = point => ({ lat: Number(point.latitude), lng: Number(point.longitude) });
+
+// Local equirectangular projection is accurate enough for the short segments returned by OSRM,
+// avoids a map-matching dependency, and makes nearest-segment work O(number of route points).
+const nearestRoutePoint = (location, route) => {
+	if (!location || route.length < 2) return null;
+	const latitudeRadians = (location.lat * Math.PI) / 180;
+	const metersPerDegreeLat = 111320;
+	const metersPerDegreeLng = metersPerDegreeLat * Math.cos(latitudeRadians);
+	const point = { x: location.lng * metersPerDegreeLng, y: location.lat * metersPerDegreeLat };
+	let nearest = null;
+	route.slice(0, -1).forEach((start, index) => {
+		const end = route[index + 1];
+		const a = { x: start.lng * metersPerDegreeLng, y: start.lat * metersPerDegreeLat };
+		const b = { x: end.lng * metersPerDegreeLng, y: end.lat * metersPerDegreeLat };
+		const dx = b.x - a.x;
+		const dy = b.y - a.y;
+		const lengthSquared = dx * dx + dy * dy;
+		const fraction = lengthSquared ? Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSquared)) : 0;
+		const snapped = { lat: start.lat + (end.lat - start.lat) * fraction, lng: start.lng + (end.lng - start.lng) * fraction };
+		const distance = Math.hypot(point.x - snapped.lng * metersPerDegreeLng, point.y - snapped.lat * metersPerDegreeLat);
+		if (!nearest || distance < nearest.distance) nearest = { index, fraction, snapped, distance };
+	});
+	return nearest;
+};
 
 const AnimatedPartyMarker = ({ location }) => {
 	const [coordinate, setCoordinate] = useState(location);
@@ -184,7 +213,7 @@ const TileModal = ({ currentStyle, onSelect, isModalVisible, onClose }) => {
 	);
 };
 
-const TripRouteMap = ({ startPin, endPin, waypoints = [], routeCoordinates = [], onMapPress, userLocation, partyLocation, partyLocations = [], tourId }) => {
+const TripRouteMap = ({ startPin, endPin, waypoints = [], routeCoordinates = [], onMapPress, userLocation, partyLocation, partyLocations = [], driverLocation, showRouteDeviation = false, tourId }) => {
 	const { theme } = useTheme();
 	const { colors } = theme;
 	const [mapStyle, setMapStyle] = useState('standard');
@@ -202,6 +231,44 @@ const TripRouteMap = ({ startPin, endPin, waypoints = [], routeCoordinates = [],
 
 	const [pressPulse, setPressPulse] = useState(null);
 	const pressPulseTimeoutRef = useRef(null);
+	const [traversedRoute, setTraversedRoute] = useState([]);
+	const [offRouteTrace, setOffRouteTrace] = useState([]);
+	const deviationStateRef = useRef({ lastAt: 0, offRouteSamples: 0 });
+
+	const normalizedRoute = useMemo(() => routeCoordinates.map(toRoutePoint).filter(point => Number.isFinite(point.lat) && Number.isFinite(point.lng)), [routeCoordinates]);
+
+	useEffect(() => {
+		deviationStateRef.current = { lastAt: 0, offRouteSamples: 0 };
+		const frame = requestAnimationFrame(() => {
+			setTraversedRoute([]);
+			setOffRouteTrace([]);
+		});
+		return () => cancelAnimationFrame(frame);
+	}, [routeCoordinates, showRouteDeviation]);
+
+	useEffect(() => {
+		if (!showRouteDeviation || !driverLocation || normalizedRoute.length < 2) return;
+		const now = Date.now();
+		if (now - deviationStateRef.current.lastAt < DEVIATION_RECOMPUTE_MS) return;
+		deviationStateRef.current.lastAt = now;
+		const nearest = nearestRoutePoint(driverLocation, normalizedRoute);
+		if (!nearest) return;
+		const traversed = [...normalizedRoute.slice(0, nearest.index + 1), nearest.snapped];
+		let appendOffRoutePoint = false;
+		if (nearest.distance > OFF_ROUTE_DISTANCE_M) {
+			deviationStateRef.current.offRouteSamples += 1;
+			if (deviationStateRef.current.offRouteSamples >= OFF_ROUTE_SAMPLES_REQUIRED) {
+				appendOffRoutePoint = true;
+			}
+		} else {
+			deviationStateRef.current.offRouteSamples = 0;
+		}
+		const frame = requestAnimationFrame(() => {
+			setTraversedRoute(traversed);
+			if (appendOffRoutePoint) setOffRouteTrace(current => [...current, driverLocation]);
+		});
+		return () => cancelAnimationFrame(frame);
+	}, [driverLocation, normalizedRoute, showRouteDeviation]);
 
 	useEffect(() => {
 		AsyncStorage.getItem(MAP_STYLE_STORAGE_KEY).then(savedStyle => {
@@ -224,6 +291,8 @@ const TripRouteMap = ({ startPin, endPin, waypoints = [], routeCoordinates = [],
 		type: 'Feature',
 		geometry: { type: 'LineString', coordinates: routeCoordinates.map(c => [c.longitude, c.latitude]) },
 	};
+	const traversedRouteGeoJSON = useMemo(() => ({ type: 'Feature', geometry: { type: 'LineString', coordinates: traversedRoute.map(toLngLat) } }), [traversedRoute]);
+	const offRouteGeoJSON = useMemo(() => ({ type: 'Feature', geometry: { type: 'LineString', coordinates: offRouteTrace.map(toLngLat) } }), [offRouteTrace]);
 
 	const routeBounds = useMemo(() => {
 		const points = routeCoordinates
@@ -365,6 +434,16 @@ const TripRouteMap = ({ startPin, endPin, waypoints = [], routeCoordinates = [],
 				{mapReady && routeCoordinates.length > 0 && (
 					<GeoJSONSource id='routeSource' data={routeGeoJSON}>
 						<Layer type='line' paint={{ 'line-color': '#0A84FF', 'line-width': 4 }} />
+					</GeoJSONSource>
+				)}
+				{mapReady && traversedRoute.length > 1 && (
+					<GeoJSONSource id='traversedRouteSource' data={traversedRouteGeoJSON}>
+						<Layer type='line' paint={{ 'line-color': '#22c55e', 'line-width': 5 }} />
+					</GeoJSONSource>
+				)}
+				{mapReady && offRouteTrace.length > 1 && (
+					<GeoJSONSource id='offRouteSource' data={offRouteGeoJSON}>
+						<Layer type='line' paint={{ 'line-color': '#ef4444', 'line-width': 5 }} />
 					</GeoJSONSource>
 				)}
 
