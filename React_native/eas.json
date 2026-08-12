@@ -11,11 +11,17 @@
     },
     "client-development": {
       "extends": "development",
-      "env": { "APP_VARIANT": "client" }
+      "env": {
+        "APP_VARIANT": "client",
+        "EXPO_PUBLIC_API_URL": "https://verna-backend-dfa8buasa3brhha0.francecentral-01.azurewebsites.net"
+      }
     },
     "driver-development": {
       "extends": "development",
-      "env": { "APP_VARIANT": "driver" }
+      "env": {
+        "APP_VARIANT": "driver",
+        "EXPO_PUBLIC_API_URL": "https://verna-backend-dfa8buasa3brhha0.francecentral-01.azurewebsites.net"
+      }
     },
     "preview": {
       "environment": "preview",
@@ -23,11 +29,17 @@
     },
     "client-preview": {
       "extends": "preview",
-      "env": { "APP_VARIANT": "client" }
+      "env": {
+        "APP_VARIANT": "client",
+        "EXPO_PUBLIC_API_URL": "https://verna-backend-dfa8buasa3brhha0.francecentral-01.azurewebsites.net"
+      }
     },
     "driver-preview": {
       "extends": "preview",
-      "env": { "APP_VARIANT": "driver" }
+      "env": {
+        "APP_VARIANT": "driver",
+        "EXPO_PUBLIC_API_URL": "https://verna-backend-dfa8buasa3brhha0.francecentral-01.azurewebsites.net"
+      }
     },
     "production": {
       "environment": "production",
@@ -35,11 +47,17 @@
     },
     "client-production": {
       "extends": "production",
-      "env": { "APP_VARIANT": "client" }
+      "env": {
+        "APP_VARIANT": "client",
+        "EXPO_PUBLIC_API_URL": "https://verna-backend-dfa8buasa3brhha0.francecentral-01.azurewebsites.net"
+      }
     },
     "driver-production": {
       "extends": "production",
-      "env": { "APP_VARIANT": "driver" }
+      "env": {
+        "APP_VARIANT": "driver",
+        "EXPO_PUBLIC_API_URL": "https://verna-backend-dfa8buasa3brhha0.francecentral-01.azurewebsites.net"
+      }
     }
   },
   "submit": {

@@ -12,7 +12,6 @@ const googleServicesFile = isDriver ? './google-services.driver.json' : './googl
 module.exports = {
   name: isDriver ? 'Verna Driver' : 'Verna',
   slug: 'verna',
-  owner: 'shtya',
   version: '1.0.0',
   orientation: 'portrait',
   scheme: isDriver ? 'verna-driver' : 'verna',
@@ -28,17 +27,24 @@ module.exports = {
   ios: { bundleIdentifier: appIdentifier },
   web: { output: 'single' },
   plugins: [
-    'expo-font', 'expo-image', 'expo-status-bar',
+    'expo-font',
+    'expo-image',
+    'expo-status-bar',
     ['expo-notifications', { icon: './assets/images/icon.png', color: '#FF6B00', defaultChannel: 'default' }],
-    'expo-web-browser', 'expo-background-task',
-    ['expo-location', {
-      isIosBackgroundLocationEnabled: true,
-      isAndroidBackgroundLocationEnabled: true,
-      isAndroidForegroundServiceEnabled: true,
-      locationWhenInUsePermission: 'بنستخدم موقعك عشان نحدد نقطة انطلاق رحلتك ونعرضها بشكل مباشر للسائق أو العميل أثناء الرحلة النشطة.',
-      locationAlwaysAndWhenInUsePermission: 'بنحتاج نوصل لموقعك في الخلفية أثناء الرحلة النشطة فقط، عشان الطرف التاني (السائق أو العميل) يقدر يتابع مكانك لحظيًا حتى لو التطبيق مش مفتوح على الشاشة. المشاركة دي بتتوقف تلقائيًا بمجرد ما الرحلة تخلص.',
-    }],
-    'expo-secure-store', '@maplibre/maplibre-react-native',
+    'expo-web-browser',
+    'expo-background-task',
+    [
+      'expo-location',
+      {
+        isIosBackgroundLocationEnabled: true,
+        isAndroidBackgroundLocationEnabled: true,
+        isAndroidForegroundServiceEnabled: true,
+        locationWhenInUsePermission: 'بنستخدم موقعك عشان نحدد نقطة انطلاق رحلتك ونعرضها بشكل مباشر للسائق أو العميل أثناء الرحلة النشطة.',
+        locationAlwaysAndWhenInUsePermission: 'بنحتاج نوصل لموقعك في الخلفية أثناء الرحلة النشطة فقط، عشان الطرف التاني (السائق أو العميل) يقدر يتابع مكانك لحظيًا حتى لو التطبيق مش مفتوح على الشاشة. المشاركة دي بتتوقف تلقائيًا بمجرد ما الرحلة تخلص.',
+      },
+    ],
+    'expo-secure-store',
+    '@maplibre/maplibre-react-native',
     ['expo-image-picker', { photosPermission: 'بنستخدم صورك عشان تقدر تغيّر صورة البروفايل بتاعتك.' }],
     '@react-native-community/datetimepicker',
     ['expo-splash-screen', { image: './assets/images/fake-splash.png', imageWidth: 220, backgroundColor: '#0B1E3F', resizeMode: 'contain', dark: { backgroundColor: '#0B1E3F' } }],
@@ -46,6 +52,6 @@ module.exports = {
   experiments: { reactCompiler: true },
   extra: {
     appVariant: APP_VARIANT,
-    eas: { projectId: '7e703bab-0ddb-44c9-8ac6-dc037eb9585f' },
+    eas: { projectId: 'ce4d462e-34b5-44d0-8eaa-9361455e2a87' },
   },
 };
