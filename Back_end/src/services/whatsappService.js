@@ -9,6 +9,7 @@ let sock = null;
 let connected = false;
 let initializing = null;
 let reconnectTimer = null;
+let lastQr = null;
 
 const getDisconnectCode = error => error?.output?.statusCode || error?.data?.statusCode || error?.statusCode;
 
@@ -43,12 +44,14 @@ export const initializeWhatsApp = async () => {
     socket.ev.on('creds.update', saveCreds);
     socket.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
       if (qr) {
+        lastQr = qr;
         console.log('\nامسح QR التالي من واتساب > الأجهزة المرتبطة لربط خدمة OTP:\n');
         qrcode.generate(qr, { small: true });
       }
 
       if (connection === 'open') {
         connected = true;
+        lastQr = null;
         clearReconnectTimer();
         console.log('تم ربط WhatsApp بخدمة OTP.');
         return;
@@ -103,3 +106,5 @@ export const sendWhatsAppMessage = async (phoneNumber, message) => {
     return { success: false, error: error.message };
   }
 };
+
+export const getWhatsAppStatus = () => ({ connected, qr: lastQr });
