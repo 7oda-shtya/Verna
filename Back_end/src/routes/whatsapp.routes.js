@@ -13,15 +13,14 @@ router.get('/qr', (req, res) => {
     return res.send('<h2 style="font-family:sans-serif">مفيش QR جاهز دلوقتي، جرّب Refresh بعد ثواني</h2>');
   }
 
+  const imgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}`;
+
   res.send(`
     <html dir="rtl">
       <body style="display:flex;flex-direction:column;align-items:center;font-family:sans-serif;margin-top:40px">
         <h2>امسح الكود ده من واتساب &gt; الأجهزة المرتبطة</h2>
-        <div id="qr"></div>
-        <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-        <script>
-          QRCode.toCanvas(document.getElementById('qr'), ${JSON.stringify(qr)}, { width: 300 });
-        </script>
+        <img src="${imgUrl}" width="300" height="300" alt="WhatsApp QR" />
+        <p style="color:#666">لو الكود خلص صلاحيته، اعمل Refresh للصفحة</p>
       </body>
     </html>
   `);
