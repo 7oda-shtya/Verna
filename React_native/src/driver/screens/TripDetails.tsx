@@ -105,6 +105,7 @@ export default function TripDetails() {
         ) : null}
 
         {error || trackingError || locationError ? <Text style={{ color: colors.error, textAlign: 'right' }}>{error || trackingError || locationError}</Text> : null}
+        {offerId ? <Text style={{ color: colors.success, textAlign: 'right' }}>Waiting for the client response. Your live location is being shared.</Text> : null}
 
         <View style={{ flexDirection: 'row-reverse', gap: 8 }}>
           <TextInput

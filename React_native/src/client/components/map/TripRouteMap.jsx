@@ -184,7 +184,7 @@ const TileModal = ({ currentStyle, onSelect, isModalVisible, onClose }) => {
 	);
 };
 
-const TripRouteMap = ({ startPin, endPin, waypoints = [], routeCoordinates = [], onMapPress, userLocation, partyLocation, tourId }) => {
+const TripRouteMap = ({ startPin, endPin, waypoints = [], routeCoordinates = [], onMapPress, userLocation, partyLocation, partyLocations = [], tourId }) => {
 	const { theme } = useTheme();
 	const { colors } = theme;
 	const [mapStyle, setMapStyle] = useState('standard');
@@ -353,9 +353,9 @@ const TripRouteMap = ({ startPin, endPin, waypoints = [], routeCoordinates = [],
 						<View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: '#22d3ee', borderWidth: 3, borderColor: '#fff' }} />
 					</ViewAnnotation>
 				)}
-				{mapReady && partyLocation && (
-					<AnimatedPartyMarker location={partyLocation} />
-				)}
+				{mapReady && (partyLocations.length ? partyLocations : partyLocation ? [partyLocation] : []).map(location => (
+					<AnimatedPartyMarker key={location.userId || `${location.lat}:${location.lng}`} location={location} />
+				))}
 
 				{mapReady && waypoints.map((wp, i) => wp && (
 					<ViewAnnotation key={i} lngLat={toLngLat(wp)} anchor='bottom'>

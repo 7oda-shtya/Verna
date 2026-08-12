@@ -3,6 +3,7 @@ import { emit, on } from '../services/socket.service';
 
 export default function useTrackParty(tripId, active = true) {
   const [partyLocation, setPartyLocation] = useState(null);
+  const [partyLocations, setPartyLocations] = useState({});
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -16,7 +17,10 @@ export default function useTrackParty(tripId, active = true) {
           if (!response?.success && !cancelled) setError(response?.message || 'Could not join trip');
         });
         unsubscribe = await on('location:update', location => {
-          if (location.tripId === tripId && !cancelled) setPartyLocation(location);
+          if (location.tripId === tripId && !cancelled) {
+            setPartyLocation(location);
+            if (location.userId) setPartyLocations(current => ({ ...current, [location.userId]: location }));
+          }
         });
       } catch (socketError) {
         if (!cancelled) setError(socketError.message);
@@ -31,5 +35,5 @@ export default function useTrackParty(tripId, active = true) {
     };
   }, [tripId, active]);
 
-  return { partyLocation, error };
+  return { partyLocation, partyLocations, error };
 }

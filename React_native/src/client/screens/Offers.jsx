@@ -29,8 +29,11 @@ const Offers = () => {
 	const [acceptingId, setAcceptingId] = useState(null)
 	const [walletIssue, setWalletIssue] = useState(null)
 	const trackingActive = Boolean(isFocused && tripId && offers.length)
-	const { partyLocation } = useTrackParty(tripId, trackingActive)
+	const { partyLocations } = useTrackParty(tripId, trackingActive)
 	const { location } = useLiveLocation(tripId, trackingActive, false)
+	const offeringDriverLocations = offers
+		.map(offer => partyLocations[offer.driver?.id])
+		.filter(Boolean)
 
 	const loadOffers = useCallback(() => {
 		setLoading(true)
@@ -97,7 +100,7 @@ const Offers = () => {
 								waypoints={trip.waypoints || []}
 								routeCoordinates={trip.route?.coordinates || []}
 								userLocation={location?.coords && { lat: location.coords.latitude, lng: location.coords.longitude }}
-								partyLocation={partyLocation}
+								partyLocations={offeringDriverLocations}
 							/>
 						</View>
 					) : null}
@@ -124,6 +127,7 @@ const Offers = () => {
 							</View>
 							{offer.timeToReach ? <Text style={{ color: colors.textSecondary, textAlign: 'right' }}>الوصول خلال {offer.timeToReach}</Text> : null}
 							{offer.note ? <Text style={{ color: colors.textSecondary, textAlign: 'right' }}>{offer.note}</Text> : null}
+							{partyLocations[offer.driver?.id] ? <Text style={{ color: colors.success, textAlign: 'right' }}>Live location is being shared</Text> : null}
 
 							{walletIssue?.offerId === offer.id ? (
 								<View style={{ gap: 8, padding: 12, borderRadius: 14, backgroundColor: colors.errorMuted, borderColor: colors.error, borderWidth: 1 }}>
