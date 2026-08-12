@@ -4,6 +4,7 @@ import { prisma } from '../db.js';
 import { sendNotification } from '../services/notification.service.js';
 
 const ACTIVE_TRIP_STATUSES = ['BOOKED', 'STARTED'];
+const LOCATION_SHARING_OFFER_STATUSES = ['PENDING', 'ACCEPTED'];
 const DRIVERS_ONLINE_ROOM = 'drivers:online';
 const DRIVER_OFFLINE_GRACE_MS = 90 * 1000;
 
@@ -43,8 +44,16 @@ async function getTripForParticipant(tripId, userId) {
   return prisma.trip.findFirst({
     where: {
       id: tripId,
-      status: { in: ACTIVE_TRIP_STATUSES },
-      OR: [{ clientId: userId }, { driverId: userId }],
+      OR: [
+        { status: { in: ACTIVE_TRIP_STATUSES }, OR: [{ clientId: userId }, { driverId: userId }] },
+        {
+          status: 'PENDING',
+          OR: [
+            { clientId: userId },
+            { offers: { some: { driverId: userId, status: { in: LOCATION_SHARING_OFFER_STATUSES } } } },
+          ],
+        },
+      ],
     },
     select: { id: true, clientId: true, driverId: true, status: true },
   });

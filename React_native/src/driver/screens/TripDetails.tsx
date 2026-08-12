@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
@@ -7,6 +7,9 @@ import { Ionicons } from '@expo/vector-icons';
 import TripRouteMap from '../../client/components/map/TripRouteMap';
 import { useTheme } from '../../theme/useTheme';
 import { makeOffer } from '../../redux/slices/driver/tripSlice';
+import useTrackParty from '../../client/hooks/useTrackParty';
+import useLiveLocation from '../../client/hooks/useLiveLocation';
+import { on } from '../../client/services/socket.service';
 
 export default function TripDetails() {
   const dispatch = useDispatch<any>();
@@ -21,6 +24,9 @@ export default function TripDetails() {
   const [timeToReach, setTimeToReach] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [offerId, setOfferId] = useState<string | null>(null);
+  const { partyLocation, error: trackingError } = useTrackParty(trip?.id, Boolean(offerId));
+  const { location, error: locationError } = useLiveLocation(trip?.id, Boolean(offerId), true);
 
   const canSubmit = Number(price) > 0 && timeToReach.trim().length > 0;
 
@@ -29,14 +35,29 @@ export default function TripDetails() {
     try {
       setSubmitting(true);
       setError('');
-      await dispatch(makeOffer({ tripId: trip.id, price: Number(price), timeToReach: timeToReach.trim() })).unwrap();
-      navigation.goBack();
+      const result = await (dispatch as any)(makeOffer({ tripId: trip.id, price: Number(price), timeToReach: timeToReach.trim() })).unwrap();
+      setOfferId(result.offer.id);
     } catch (requestError: any) {
       setError(requestError?.message || 'تعذر إرسال العرض حاليًا');
     } finally {
       setSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    if (!offerId) return undefined;
+    let unsubscribers: (() => void)[] = [];
+    let cancelled = false;
+    Promise.all([
+      on('offer:accepted', (payload: any) => {
+        if (payload?.tripId === trip.id && payload?.offerId === offerId) navigation.replace('ActiveTrip');
+      }),
+      on('offer:closed', (payload: any) => {
+        if (payload?.tripId === trip.id && payload?.offerId === offerId) navigation.goBack();
+      }),
+    ]).then(fns => { if (cancelled) fns.forEach(fn => fn()); else unsubscribers = fns; });
+    return () => { cancelled = true; unsubscribers.forEach(fn => fn()); };
+  }, [navigation, offerId, trip.id]);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -45,6 +66,10 @@ export default function TripDetails() {
         endPin={{ lat: trip.endLat, lng: trip.endLng }}
         waypoints={Array.isArray(trip.waypoints) ? trip.waypoints : []}
         routeCoordinates={trip.route?.coordinates || []}
+        onMapPress={() => {}}
+        tourId={undefined}
+        userLocation={(location as any)?.coords && { lat: (location as any).coords.latitude, lng: (location as any).coords.longitude }}
+        partyLocation={partyLocation}
       />
 
       <Pressable
@@ -79,7 +104,7 @@ export default function TripDetails() {
           </Text>
         ) : null}
 
-        {error ? <Text style={{ color: colors.error, textAlign: 'right' }}>{error}</Text> : null}
+        {error || trackingError || locationError ? <Text style={{ color: colors.error, textAlign: 'right' }}>{error || trackingError || locationError}</Text> : null}
 
         <View style={{ flexDirection: 'row-reverse', gap: 8 }}>
           <TextInput
@@ -100,9 +125,9 @@ export default function TripDetails() {
         </View>
 
         <Pressable
-          disabled={submitting || !canSubmit}
+          disabled={submitting || !canSubmit || Boolean(offerId)}
           onPress={submitOffer}
-          style={{ alignItems: 'center', padding: 13, borderRadius: 12, backgroundColor: colors.primary, opacity: submitting || !canSubmit ? 0.55 : 1 }}>
+          style={{ alignItems: 'center', padding: 13, borderRadius: 12, backgroundColor: colors.primary, opacity: submitting || !canSubmit || offerId ? 0.55 : 1 }}>
           {submitting ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={{ color: colors.onPrimary, fontWeight: '800' }}>إرسال العرض</Text>}
         </Pressable>
       </View>

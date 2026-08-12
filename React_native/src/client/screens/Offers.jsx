@@ -1,13 +1,16 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native'
 import { useFocusEffect, useIsFocused, useNavigation, useRoute } from '@react-navigation/native'
-import { useDispatch } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import client from '../../api/client'
 import { useTheme } from '../../theme/useTheme'
 import { hydrateCurrentTrip } from '../../redux/slices/client/tripSlice'
 import { on } from '../services/socket.service'
+import useTrackParty from '../hooks/useTrackParty'
+import useLiveLocation from '../hooks/useLiveLocation'
+import TripRouteMap from '../components/map/TripRouteMap'
 
 const Offers = () => {
 	const navigation = useNavigation()
@@ -18,12 +21,16 @@ const Offers = () => {
 	const { theme } = useTheme()
 	const { colors } = theme
 	const tripId = route.params?.tripId
+	const trip = useSelector(state => state.trip?.currentTrip)
 
 	const [offers, setOffers] = useState([])
 	const [loading, setLoading] = useState(true)
 	const [error, setError] = useState('')
 	const [acceptingId, setAcceptingId] = useState(null)
 	const [walletIssue, setWalletIssue] = useState(null)
+	const trackingActive = Boolean(isFocused && tripId && offers.length)
+	const { partyLocation } = useTrackParty(tripId, trackingActive)
+	const { location } = useLiveLocation(tripId, trackingActive, false)
 
 	const loadOffers = useCallback(() => {
 		setLoading(true)
@@ -82,6 +89,18 @@ const Offers = () => {
 					contentContainerStyle={{ padding: 16, gap: 12, flexGrow: 1 }}
 					refreshControl={<RefreshControl refreshing={loading} onRefresh={loadOffers} tintColor={colors.primary} />}
 				>
+					{trackingActive && trip?.startPin && trip?.endPin ? (
+						<View style={{ height: 220, overflow: 'hidden', borderRadius: 18 }}>
+							<TripRouteMap
+								startPin={trip.startPin}
+								endPin={trip.endPin}
+								waypoints={trip.waypoints || []}
+								routeCoordinates={trip.route?.coordinates || []}
+								userLocation={location?.coords && { lat: location.coords.latitude, lng: location.coords.longitude }}
+								partyLocation={partyLocation}
+							/>
+						</View>
+					) : null}
 					{error ? <Text style={{ color: colors.error, textAlign: 'right' }}>{error}</Text> : null}
 					{!loading && !offers.length ? (
 						<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingTop: 60 }}>

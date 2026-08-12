@@ -3,7 +3,7 @@ import { catchAsync } from '../../utils/catchAsync.js';
 import ApiError from '../../utils/ApiError.js';
 import { sendNotification } from '../../services/notification.service.js';
 import { applyClientCancellationConsequences, assertUserCanRequestTrip } from '../../services/reputation.service.js';
-import { emitToOnlineDrivers } from '../../socket/index.js';
+import { emitToOnlineDrivers, emitToUser } from '../../socket/index.js';
 
 const rideFeedPayload = trip => ({
 	id: trip.id,
@@ -259,6 +259,10 @@ export const acceptOffer = catchAsync(async (req, res) => {
     }
   }
 
+  const rejectedOffers = await prisma.offer.findMany({
+    where: { tripId: offer.tripId, id: { not: offerId }, status: 'PENDING' },
+    select: { id: true, driverId: true },
+  });
   const updatedTrip = await prisma.$transaction(async (tx) => {
     await tx.offer.updateMany({
       where: { tripId: offer.tripId, id: { not: offerId } },
@@ -280,7 +284,12 @@ export const acceptOffer = catchAsync(async (req, res) => {
     data: { tripId: updatedTrip.id },
   });
   emitToOnlineDrivers('ride:taken', { tripId: updatedTrip.id });
+  emitToUser(offer.driverId, 'offer:accepted', { tripId: updatedTrip.id, offerId });
+  rejectedOffers.forEach(rejectedOffer => emitToUser(rejectedOffer.driverId, 'offer:closed', {
+    tripId: updatedTrip.id,
+    offerId: rejectedOffer.id,
+    status: 'REJECTED',
+  }));
 
   res.status(200).json({ success: true, data: updatedTrip });
 });
-

@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { emit, on } from '../services/socket.service';
 
-export default function useTrackParty(tripId) {
+export default function useTrackParty(tripId, active = true) {
   const [partyLocation, setPartyLocation] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!tripId) return undefined;
+    if (!tripId || !active) return undefined;
     let unsubscribe;
     let cancelled = false;
 
@@ -29,7 +29,7 @@ export default function useTrackParty(tripId) {
       unsubscribe?.();
       emit('trip:leave', tripId).catch(() => {});
     };
-  }, [tripId]);
+  }, [tripId, active]);
 
   return { partyLocation, error };
 }
