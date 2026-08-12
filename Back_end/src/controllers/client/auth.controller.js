@@ -111,7 +111,7 @@ export const register = catchAsync(async (req, res) => {
 		throw new ApiError(400, 'كل الحقول المطلوبة لازم تتملى');
 	}
 
-	const existingPhone = await prisma.user.findFirst({ where: { phone } });
+	const existingPhone = await prisma.user.findUnique({ where: { phone_role: { phone, role: 'CLIENT' } } });
 	if (existingPhone) {
 		throw new ApiError(400, 'رقم الهاتف ده مسجل بالفعل', 'phone');
 	}
@@ -172,7 +172,7 @@ export const login = catchAsync(async (req, res) => {
 		throw new ApiError(400, 'رقم الهاتف أو اسم المستخدم وكلمة السر مطلوبين');
 	}
 	const user = await prisma.user.findFirst({
-		where: { OR: [{ phone: identifier }, { username: identifier }] },
+		where: { OR: [{ phone: identifier, role: 'CLIENT' }, { username: identifier }] },
 		select: { id: true, role: true, password: true },
 	});
 	if (!user) {
@@ -232,7 +232,7 @@ export const updateProfile = catchAsync(async (req, res) => {
 	}
 
 	if (phone !== undefined) {
-		const existingPhone = await prisma.user.findFirst({ where: { phone, NOT: { id: userId } } });
+		const existingPhone = await prisma.user.findFirst({ where: { phone, role: 'CLIENT', NOT: { id: userId } } });
 		if (existingPhone) {
 			throw new ApiError(400, 'رقم الهاتف ده مسجل بالفعل', 'phone');
 		}

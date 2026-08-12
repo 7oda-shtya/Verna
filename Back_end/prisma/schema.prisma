@@ -72,7 +72,7 @@ enum RequestStatus {
 model User {
   id              String         @id @default(uuid())
   name            String
-  phone           String         @unique
+  phone           String
   email           String?        @unique
   password        String
   role            Role
@@ -96,30 +96,30 @@ model User {
   isPhoneVerified Boolean        @default(false)
   isOnline        Boolean        @default(true)
 
-  reputationScore           Int?                @default(100)
-  reputationLabel           String              @default("سمعة ممتازة")
-  reputationUpdatedAt       DateTime?
-  reputationCompletedTrips  Int                 @default(0)
-  reputationCancelledTrips  Int                 @default(0)
-  reputationDriverCancelledTrips Int             @default(0)
-  reputationAcceptedReports Int                 @default(0)
-  isBanned                  Boolean             @default(false)
-  banReason                 String?
-  banStartAt                DateTime?
-  banEndAt                  DateTime?
-  reputationBanEndAt        DateTime?
-  rapidCancelBanEndAt       DateTime?
-  car                       Car?
-  savedPlaces               SavedPlace[]
-  savedTrips                SavedTrip[]
-  coupon                    Coupon[]
-  notifications             Notification[]
-  offers                    Offer[]
-  SupportMessages           SupportMessage[]
-  messages                  Message[]
-  deviceTokens              DeviceToken[]
-  rechargeRequests          RechargeRequest[]
-  withdrawalRequests        WithdrawalRequest[]
+  reputationScore                Int?                @default(100)
+  reputationLabel                String              @default("سمعة ممتازة")
+  reputationUpdatedAt            DateTime?
+  reputationCompletedTrips       Int                 @default(0)
+  reputationCancelledTrips       Int                 @default(0)
+  reputationDriverCancelledTrips Int                 @default(0)
+  reputationAcceptedReports      Int                 @default(0)
+  isBanned                       Boolean             @default(false)
+  banReason                      String?
+  banStartAt                     DateTime?
+  banEndAt                       DateTime?
+  reputationBanEndAt             DateTime?
+  rapidCancelBanEndAt            DateTime?
+  car                            Car?
+  savedPlaces                    SavedPlace[]
+  savedTrips                     SavedTrip[]
+  coupon                         Coupon[]
+  notifications                  Notification[]
+  offers                         Offer[]
+  SupportMessages                SupportMessage[]
+  messages                       Message[]
+  deviceTokens                   DeviceToken[]
+  rechargeRequests               RechargeRequest[]
+  withdrawalRequests             WithdrawalRequest[]
 
   suspendedUntil DateTime?
 
@@ -137,18 +137,21 @@ model User {
   areaSuggestion AreaSuggestion[]
   penalty        Penalty[]
   warnings       Warning[]
+
+  @@unique([phone, role])
 }
 
 model OtpCode {
   id         String     @id @default(uuid())
   phone      String
+  role       Role
   code       String
   purpose    OtpPurpose
   expiresAt  DateTime
   verifiedAt DateTime?
   createdAt  DateTime   @default(now())
 
-  @@index([phone, purpose, createdAt])
+  @@index([phone, role, purpose, createdAt])
 }
 
 model Coupon {
@@ -190,19 +193,19 @@ model Trip {
   waypoints Json? // مصفوفة { lat, lng, name }
   route     Json? // { coordinates, distanceKm, durationMin } من OSRM
 
-  status            TripStatus @default(PENDING)
-  price             Int        @default(0)
-  paymentMethod     String     @default("CASH")
-  ridersCount       Int        @default(1)
-  customerNote      String?
-  scheduledTime     DateTime?
-  pickupDistanceM   Float?
-  farFromPickupNote String?
-  createdAt         DateTime   @default(now())
-  completedAt       DateTime?
-  cancelledAt       DateTime?
-  startedAt         DateTime?
-  driverCancelledAt DateTime?
+  status              TripStatus @default(PENDING)
+  price               Int        @default(0)
+  paymentMethod       String     @default("CASH")
+  ridersCount         Int        @default(1)
+  customerNote        String?
+  scheduledTime       DateTime?
+  pickupDistanceM     Float?
+  farFromPickupNote   String?
+  createdAt           DateTime   @default(now())
+  completedAt         DateTime?
+  cancelledAt         DateTime?
+  startedAt           DateTime?
+  driverCancelledAt   DateTime?
   cancelledByDriverId String?
 
   offers   Offer[]

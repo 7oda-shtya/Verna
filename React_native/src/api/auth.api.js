@@ -2,6 +2,7 @@ import client from './client'
 
 const isDriverApp = process.env.APP_VARIANT === 'driver'
 const base = isDriverApp ? '/driver/auth' : '/client/auth'
+const accountRole = isDriverApp ? 'DRIVER' : 'CLIENT'
 
 export const loginRequest = (identifier, password) => {
 	return client.post(`${base}/login`, isDriverApp ? { phone: identifier, password } : { identifier, password })
@@ -42,15 +43,15 @@ export const updateProfileRequest = formData => {
 }
 
 export const requestOtpRequest = (phone, purpose) => {
-	return client.post('/auth/otp/request', { phone, purpose })
+	return client.post('/auth/otp/request', { phone, purpose, role: accountRole })
 }
 
 export const verifyOtpRequest = (phone, code, purpose) => {
-	return client.post('/auth/otp/verify', { phone, code, purpose })
+	return client.post('/auth/otp/verify', { phone, code, purpose, role: accountRole })
 }
 
 export const resetPasswordRequest = (phone, code, newPassword) => {
-	return client.post('/auth/password/reset', { phone, code, newPassword })
+	return client.post('/auth/password/reset', { phone, code, newPassword, role: accountRole })
 }
 
 export const changePasswordRequest = (currentPassword, newPassword) => {

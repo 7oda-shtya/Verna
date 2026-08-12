@@ -14,7 +14,7 @@ export const register = catchAsync(async (req, res) => {
 	}
 
 	const existingUser = await prisma.user.findFirst({
-		where: { OR: [{ phone }, ...(email ? [{ email }] : []), { username }] }
+		where: { OR: [{ phone, role: 'DRIVER' }, ...(email ? [{ email }] : []), { username }] }
 	});
 	if (existingUser) {
 		throw new ApiError(400, 'الرقم أو الإيميل أو اسم المستخدم ده مستخدم قبل كده');
@@ -90,7 +90,7 @@ export const login = catchAsync(async (req, res) => {
 	if (!phone || !password) {
 		throw new ApiError(400, 'الرقم وكلمة السر مطلوبين');
 	}
-	const user = await prisma.user.findUnique({ where: { phone }, include: { car: true } });
+	const user = await prisma.user.findUnique({ where: { phone_role: { phone, role: 'DRIVER' } }, include: { car: true } });
 	if (!user) {
 		throw new ApiError(401, 'الرقم أو كلمة السر غلط');
 	}
