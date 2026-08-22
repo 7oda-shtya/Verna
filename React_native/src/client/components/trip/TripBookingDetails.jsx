@@ -5,6 +5,7 @@ import { useSelector } from 'react-redux';
 import { useTheme } from '../../../theme/useTheme';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { TourTarget, useTour } from '../../../tour';
+import { VEHICLE_CATEGORIES, estimateTripPrice } from '../../utils/tripPricing';
 
 const Section = ({ title, icon, children, theme, tourId, tourStepId }) => {
 	const content = (
@@ -47,6 +48,7 @@ export default function TripBookingDetails({
 	const scrollRef = useRef(null);
 	const [timePickerVisible, setTimePickerVisible] = useState(false);
 	const [timePickerError, setTimePickerError] = useState('');
+	const estimatedPrice = estimateTripPrice(route?.distanceKm, vehicleCategory);
 	const walletInsufficient = paymentMethod === 'wallet' && wallet < estimatedPrice;
 	const now = new Date();
 	const maximumTime = new Date(now.getTime() + 12 * 60 * 60 * 1000);
@@ -170,6 +172,7 @@ export default function TripBookingDetails({
 						</Pressable>
 					</View>
 				</Section>
+
 
 				<Section title='طريقة الدفع' icon='wallet-outline' theme={theme}>
 					<View className='flex-row-reverse gap-2'>

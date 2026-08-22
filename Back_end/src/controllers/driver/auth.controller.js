@@ -7,9 +7,9 @@ import { generateReferralCode } from '../../utils/referral.js';
 
 
 export const register = catchAsync(async (req, res) => {
-	const { name, phone, email, password, username, model, plateNumber, referralCode } = req.body;
+	const { name, phone, email, password, username, referralCode } = req.body;
 
-	if (!name || !phone || !password || !username || !model || !plateNumber) {
+	if (!name || !phone || !password || !username) {
 		throw new ApiError(400, 'كل الحقول المطلوبة لازم تتملى');
 	}
 
@@ -46,11 +46,11 @@ export const register = catchAsync(async (req, res) => {
 		});
 		await tx.car.create({
 			data: {
-				plateNumber,
-				model,
-				driverId: user.id
-				,picture: req.files?.carPicture?.[0]?.path || null
-			}
+				plateNumber: '',
+				model: '',
+				driverId: user.id,
+				picture: req.files?.carPicture?.[0]?.path || null,
+			},
 		});
 		return await tx.user.findUnique({
 			where: { id: user.id },
@@ -71,6 +71,14 @@ export const register = catchAsync(async (req, res) => {
 				role: newUser.role,
 				accountStatus: newUser.accountStatus,
 				isOnline: newUser.isOnline,
+				// Fixed: this response never included isPhoneVerified, so after every
+				// register/login the app's Redux state fell back to its initial `false`
+				// value (since the field was simply absent from the payload) and gated the
+				// driver into the OTP screen again even though the DB already had
+				// isPhoneVerified: true from a previous verification. /auth/me was fine
+				// (it selects the full profile), which is why a silent session restore
+				// worked but an explicit register/login kept re-asking for the code.
+				isPhoneVerified: newUser.isPhoneVerified,
 				included: {
 					car: {
 						plateNumber: newUser.car.plateNumber,
@@ -117,6 +125,9 @@ export const login = catchAsync(async (req, res) => {
 				role: user.role,
 				accountStatus: user.accountStatus,
 				isOnline: user.isOnline,
+				// Same fix as register(): include the real persisted value instead of
+				// letting the app default it to false on every login.
+				isPhoneVerified: user.isPhoneVerified,
 				included: {
 					car: {
 						plateNumber: user.car.plateNumber,

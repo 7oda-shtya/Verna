@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -7,57 +7,67 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useTheme } from '../../theme/useTheme';
 import { updateKyc } from '../../redux/slices/driver/authSlice';
 
-// key: the multipart field name PUT /driver/auth/kyc expects
-// existingUrl: where the already-uploaded document (if any) lives on the driver's profile
-const DOCUMENTS = [
+const LICENSE_ID_DOCS = [
   { key: 'license', label: 'رخصة القيادة', existingUrl: (user: any) => user.driverLicense },
-  { key: 'nationalIdFront', label: 'البطاقة الشخصية (الوجه الأمامي)', existingUrl: (user: any) => user.nationalIdFront },
-  { key: 'nationalIdBack', label: 'البطاقة الشخصية (الوجه الخلفي)', existingUrl: (user: any) => user.nationalIdBack },
+  { key: 'nationalIdFront', label: 'البطاقة — الوجه الأمامي', existingUrl: (user: any) => user.nationalIdFront },
+  { key: 'nationalIdBack', label: 'البطاقة — الوجه الخلفي', existingUrl: (user: any) => user.nationalIdBack },
+];
+
+const CAR_DOCS = [
   { key: 'carPicture', label: 'صورة السيارة', existingUrl: (user: any) => user.car?.picture },
   { key: 'carLicense', label: 'رخصة السيارة', existingUrl: (user: any) => user.car?.licenseDocument },
 ];
 
-const DocumentRow = ({ doc, existingUrl, pickedAsset, onPick, colors, theme }: any) => (
-  <View style={{ gap: 10, padding: 14, borderRadius: 16, backgroundColor: colors.surface, borderColor: colors.border, borderWidth: theme.borderWidths.subtle }}>
-    <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' }}>
-      <Text style={{ color: colors.textPrimary, fontWeight: '800', textAlign: 'right' }}>{doc.label}</Text>
-      {pickedAsset ? (
-        <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
-          <Ionicons name='checkmark-circle' size={16} color={colors.primary} />
-          <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '700' }}>جاهزة للرفع</Text>
-        </View>
-      ) : existingUrl ? (
-        <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
-          <Ionicons name='checkmark-circle' size={16} color={colors.success} />
-          <Text style={{ color: colors.success, fontSize: 12, fontWeight: '700' }}>مرفوعة</Text>
-        </View>
-      ) : (
-        <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
-          <Ionicons name='alert-circle-outline' size={16} color={colors.textSecondary} />
-          <Text style={{ color: colors.textSecondary, fontSize: 12 }}>لم يتم الرفع</Text>
-        </View>
-      )}
-    </View>
+const DocumentRow = ({ doc, existingUrl, pickedAsset, onPick, colors, theme }: any) => {
+  const uploaded = Boolean(existingUrl);
+  const pending = Boolean(pickedAsset);
+  const statusColor = pending ? colors.primary : uploaded ? colors.success : colors.textSecondary;
+  const statusLabel = pending ? 'جاهزة' : uploaded ? 'مرفوعة' : 'ناقصة';
+  const statusIcon = pending || uploaded ? 'checkmark-circle' : 'alert-circle-outline';
 
-    <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 12 }}>
+  return (
+    <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 14, backgroundColor: colors.surfaceElevated, borderColor: colors.border, borderWidth: theme.borderWidths.subtle }}>
       {(pickedAsset?.uri || existingUrl) ? (
-        <Image source={{ uri: pickedAsset?.uri || existingUrl }} style={{ width: 64, height: 64, borderRadius: 12, backgroundColor: colors.surfaceElevated }} />
+        <Image source={{ uri: pickedAsset?.uri || existingUrl }} style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: colors.surface }} />
       ) : (
-        <View style={{ width: 64, height: 64, borderRadius: 12, backgroundColor: colors.surfaceElevated, alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name='document-outline' size={24} color={colors.textSecondary} />
+        <View style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name='document-outline' size={20} color={colors.textSecondary} />
         </View>
       )}
-      <Pressable onPress={onPick} style={{ flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.surfaceElevated, borderColor: colors.border, borderWidth: theme.borderWidths.subtle }}>
-        <Text style={{ color: colors.primary, fontWeight: '700' }}>{existingUrl || pickedAsset ? 'استبدال الصورة' : 'اختيار صورة'}</Text>
+
+      <View style={{ flex: 1, gap: 3 }}>
+        <Text style={{ ...theme.typography.caption, fontWeight: '700', color: colors.textPrimary, textAlign: 'right' }}>{doc.label}</Text>
+        <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
+          <Ionicons name={statusIcon} size={14} color={statusColor} />
+          <Text style={{ ...theme.typography.tiny, color: statusColor, fontWeight: '700' }}>{statusLabel}</Text>
+        </View>
+      </View>
+
+      <Pressable onPress={onPick} style={{ paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10, backgroundColor: colors.primaryMuted }}>
+        <Text style={{ ...theme.typography.tiny, color: colors.primary, fontWeight: '700' }}>{uploaded || pending ? 'استبدال' : 'رفع'}</Text>
       </Pressable>
     </View>
+  );
+};
+
+const DocumentSection = ({ title, docs, user, pendingAssets, onPick, colors, theme }: any) => (
+  <View style={{ gap: 8 }}>
+    <Text style={{ ...theme.typography.caption, color: colors.textSecondary, textAlign: 'right', fontWeight: '700' }}>{title}</Text>
+    {docs.map((doc: any) => (
+      <DocumentRow
+        key={doc.key}
+        doc={doc}
+        existingUrl={doc.existingUrl(user)}
+        pickedAsset={pendingAssets[doc.key]}
+        onPick={() => onPick(doc.key)}
+        colors={colors}
+        theme={theme}
+      />
+    ))}
   </View>
 );
 
-// The shared form body — used both here (as a standalone editable screen reachable from
-// DriverProfile) and embedded in DriverAccountPendingScreen (the PENDING-review gate), so the
-// same upload/already-uploaded logic isn't duplicated between the two entry points.
-export function KycDocumentsForm({ onSaved }: { onSaved?: () => void } = {}) {
+export function KycDocumentsForm({ onSaved, onSkip }: { onSaved?: () => void; onSkip?: () => void } = {}) {
   const dispatch = useDispatch<any>();
   const { theme } = useTheme();
   const { colors } = theme;
@@ -108,36 +118,46 @@ export function KycDocumentsForm({ onSaved }: { onSaved?: () => void } = {}) {
   };
 
   return (
-    <View style={{ gap: 16 }}>
-      <View style={{ gap: 10 }}>
-        <Text style={{ ...theme.typography.subtitle, color: colors.textPrimary, textAlign: 'right' }}>بيانات السيارة</Text>
-        <View style={{ flexDirection: 'row-reverse', gap: 8 }}>
-          <TextInput value={model} onChangeText={setModel} placeholder='موديل السيارة' placeholderTextColor={colors.placeholder} style={{ flex: 1, ...theme.components.input, paddingVertical: 12, textAlign: 'right' }} />
-          <TextInput value={plateNumber} onChangeText={setPlateNumber} placeholder='رقم اللوحة' placeholderTextColor={colors.placeholder} style={{ flex: 1, ...theme.components.input, paddingVertical: 12, textAlign: 'right' }} />
+    <View style={{ gap: 14 }}>
+      <View style={{ gap: 10, padding: 14, borderRadius: 16, ...theme.components.card }}>
+        <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 8 }}>
+          <Ionicons name='car-outline' size={18} color={colors.primary} />
+          <Text style={{ ...theme.typography.subtitle, color: colors.textPrimary }}>بيانات السيارة</Text>
         </View>
+        <TextInput
+          value={model}
+          onChangeText={setModel}
+          placeholder='موديل السيارة'
+          placeholderTextColor={colors.placeholder}
+          style={{ ...theme.components.input, paddingVertical: 12, textAlign: 'right' }}
+        />
+        <TextInput
+          value={plateNumber}
+          onChangeText={setPlateNumber}
+          placeholder='رقم اللوحة'
+          placeholderTextColor={colors.placeholder}
+          style={{ ...theme.components.input, paddingVertical: 12, textAlign: 'right' }}
+        />
       </View>
 
-      <View style={{ gap: 10 }}>
-        <Text style={{ ...theme.typography.subtitle, color: colors.textPrimary, textAlign: 'right' }}>المستندات المطلوبة</Text>
-        {DOCUMENTS.map(doc => (
-          <DocumentRow
-            key={doc.key}
-            doc={doc}
-            existingUrl={doc.existingUrl(user)}
-            pickedAsset={pendingAssets[doc.key]}
-            onPick={() => pickDocument(doc.key)}
-            colors={colors}
-            theme={theme}
-          />
-        ))}
+      <View style={{ gap: 12, padding: 14, borderRadius: 16, ...theme.components.card }}>
+        <DocumentSection title='رخصة القيادة والهوية' docs={LICENSE_ID_DOCS} user={user} pendingAssets={pendingAssets} onPick={pickDocument} colors={colors} theme={theme} />
+        <View style={{ height: 1, backgroundColor: colors.divider }} />
+        <DocumentSection title='مستندات السيارة' docs={CAR_DOCS} user={user} pendingAssets={pendingAssets} onPick={pickDocument} colors={colors} theme={theme} />
       </View>
 
-      {error ? <Text style={{ color: colors.error, textAlign: 'right' }}>{error}</Text> : null}
-      {success ? <Text style={{ color: colors.success, textAlign: 'right' }}>{success}</Text> : null}
+      {error ? <Text style={{ ...theme.typography.caption, color: colors.error, textAlign: 'right' }}>{error}</Text> : null}
+      {success ? <Text style={{ ...theme.typography.caption, color: colors.success, textAlign: 'right' }}>{success}</Text> : null}
 
-      <Pressable disabled={!hasChanges || submitting} onPress={submit} style={{ minHeight: 50, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: colors.primary, opacity: !hasChanges || submitting ? 0.55 : 1 }}>
-        {submitting ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={{ color: colors.onPrimary, fontWeight: '800' }}>حفظ البيانات</Text>}
+      <Pressable disabled={!hasChanges || submitting} onPress={submit} style={{ minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: colors.primary, opacity: !hasChanges || submitting ? 0.55 : 1 }}>
+        {submitting ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={{ ...theme.typography.subtitle, color: colors.onPrimary, fontWeight: '800' }}>حفظ البيانات</Text>}
       </Pressable>
+
+      {onSkip ? (
+        <Pressable onPress={onSkip} style={{ alignItems: 'center', paddingVertical: 10 }}>
+          <Text style={{ ...theme.typography.body, color: colors.textSecondary, fontWeight: '700' }}>لاحقًا</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -154,9 +174,11 @@ export default function KycUpload({ navigation }: any) {
         </Pressable>
         <Text style={{ ...theme.typography.title, color: colors.textPrimary }}>مستندات الحساب</Text>
       </View>
-      <ScrollView contentContainerStyle={{ padding: 18, paddingTop: 4 }}>
-        <KycDocumentsForm />
-      </ScrollView>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <ScrollView contentContainerStyle={{ padding: 18, paddingTop: 4, paddingBottom: 32 }} keyboardShouldPersistTaps='handled' showsVerticalScrollIndicator={false}>
+          <KycDocumentsForm onSkip={() => navigation.navigate('DriverTabs')} />
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

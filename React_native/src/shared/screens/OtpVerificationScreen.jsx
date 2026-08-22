@@ -12,21 +12,26 @@ export default function OtpVerificationScreen({ navigation, route, phone: phoneP
 	const { theme } = useTheme()
 	const { colors } = theme
 	const phone = phoneProp || route?.params?.phone
-	const purpose = purposeProp || PHONE_VERIFICATION === route?.params?.purpose ? PHONE_VERIFICATION : 'PASSWORD_RESET'
+	const purpose = purposeProp || route?.params?.purpose || PHONE_VERIFICATION
 	const accountMode = Boolean(route?.params?.accountMode)
 	const shouldRequestOnMount = purpose === PHONE_VERIFICATION
-	const inputRef = useRef(null)
+	// Third rewrite of the OTP input: the previous approach used one invisible TextInput
+	// layered behind/beside visible "boxes", relying on it to catch focus/typing while the
+	// boxes were purely decorative. That's the pattern that kept breaking (keyboard not
+	// opening, typed digits not showing up) across Android/Fabric. This version drops that
+	// entirely: each box IS its own real, visible TextInput. Tapping a box focuses that exact
+	// input natively (no touch-routing tricks needed), and typing a digit updates that same
+	// box directly, so there's no separate state to get out of sync with what's on screen.
+	const inputRefs = useRef([])
 	const requestedOnMount = useRef(false)
 	const verifying = useRef(false)
-	const [code, setCode] = useState('')
+	const [digits, setDigits] = useState(Array(CODE_LENGTH).fill(''))
 	const [loading, setLoading] = useState(false)
 	const [error, setError] = useState('')
 	const [notice, setNotice] = useState('')
 	const [cooldown, setCooldown] = useState(shouldRequestOnMount ? 0 : 30)
 
-	const focusInput = () => {
-		if (!loading) inputRef.current?.focus()
-	}
+	const focusIndex = index => inputRefs.current[index]?.focus()
 
 	const requestCode = async () => {
 		if (!phone || loading || cooldown > 0) return
@@ -36,7 +41,7 @@ export default function OtpVerificationScreen({ navigation, route, phone: phoneP
 			await requestOtpRequest(phone, purpose)
 			setNotice('تم إرسال رمز تحقق جديد إلى رقم هاتفك')
 			setCooldown(45)
-			requestAnimationFrame(focusInput)
+			requestAnimationFrame(() => focusIndex(0))
 		} catch (requestError) {
 			setError(requestError.response?.data?.message || 'تعذر إرسال رمز التحقق')
 		} finally {
@@ -45,7 +50,7 @@ export default function OtpVerificationScreen({ navigation, route, phone: phoneP
 	}
 
 	useEffect(() => {
-		const interaction = InteractionManager.runAfterInteractions(focusInput)
+		const interaction = InteractionManager.runAfterInteractions(() => focusIndex(0))
 		return () => interaction.cancel()
 	}, [])
 
@@ -74,22 +79,60 @@ export default function OtpVerificationScreen({ navigation, route, phone: phoneP
 			}
 			navigation?.replace('NewPassword', { phone, code: value, accountMode })
 		} catch (verifyError) {
-			setCode('')
+			setDigits(Array(CODE_LENGTH).fill(''))
 			setError(verifyError.response?.data?.message || 'رمز التحقق غير صحيح أو منتهي')
-			requestAnimationFrame(focusInput)
+			requestAnimationFrame(() => focusIndex(0))
 		} finally {
 			verifying.current = false
 			setLoading(false)
 		}
 	}
 
-	const handleCodeChange = value => {
+	// Handles both normal typing AND autofill/paste, since SMS autofill on Android/iOS
+	// commonly drops the whole code into whichever box is currently focused rather than
+	// typing it digit by digit.
+	const handleChangeAt = (index, value) => {
 		if (loading) return
-		const nextCode = value.replace(/\D/g, '').slice(0, CODE_LENGTH)
-		setCode(nextCode)
-		setError('')
-		setNotice('')
-		if (nextCode.length === CODE_LENGTH) verifyCode(nextCode)
+		const digitsOnly = value.replace(/\D/g, '')
+		if (!digitsOnly) {
+			setDigits(prev => {
+				const next = [...prev]
+				next[index] = ''
+				return next
+			})
+			return
+		}
+
+		setDigits(prev => {
+			const next = [...prev]
+			if (digitsOnly.length > 1) {
+				// Autofill/paste: spread the incoming digits starting at this box.
+				for (let i = 0; i < digitsOnly.length && index + i < CODE_LENGTH; i++) {
+					next[index + i] = digitsOnly[i]
+				}
+			} else {
+				next[index] = digitsOnly
+			}
+			const joined = next.join('')
+			setError('')
+			setNotice('')
+			if (joined.length === CODE_LENGTH && next.every(Boolean)) {
+				requestAnimationFrame(() => verifyCode(joined))
+			} else {
+				const nextEmptyIndex = next.findIndex((d, i) => i > index && !d)
+				const target = digitsOnly.length > 1
+					? Math.min(index + digitsOnly.length, CODE_LENGTH - 1)
+					: index + 1
+				if (target < CODE_LENGTH) requestAnimationFrame(() => focusIndex(nextEmptyIndex !== -1 ? nextEmptyIndex : target))
+			}
+			return next
+		})
+	}
+
+	const handleKeyPressAt = (index, key) => {
+		if (key === 'Backspace' && !digits[index] && index > 0) {
+			requestAnimationFrame(() => focusIndex(index - 1))
+		}
 	}
 
 	const isPhoneVerification = purpose === PHONE_VERIFICATION
@@ -114,30 +157,33 @@ export default function OtpVerificationScreen({ navigation, route, phone: phoneP
 						<Text style={[styles.description, { color: colors.textSecondary }]}>أدخل رمز التحقق المكون من 6 أرقام المرسل إلى</Text>
 						<Text style={[styles.phone, { color: colors.textPrimary }]}>{phone || 'رقم هاتفك'}</Text>
 
-						<View style={styles.codeArea}>
-							<TextInput
-								ref={inputRef}
-								value={code}
-								onChangeText={handleCodeChange}
-								keyboardType='number-pad'
-								autoComplete='sms-otp'
-								textContentType='oneTimeCode'
-								maxLength={CODE_LENGTH}
-								caretHidden
-								showSoftInputOnFocus
-								style={styles.inputOverlay}
-							/>
-							<View pointerEvents='none' style={styles.codeRow}>
-								{Array.from({ length: CODE_LENGTH }, (_, index) => {
-									const filled = Boolean(code[index])
-									const active = code.length === index && !loading
-									return (
-										<View key={index} style={[styles.codeBox, { borderColor: error ? colors.error : active ? '#ff6b4a' : colors.border, backgroundColor: filled ? '#211d20' : '#1a1a1d' }]}>
-											<Text style={[styles.codeText, { color: colors.textPrimary }]}>{code[index] || ''}</Text>
-										</View>
-									)
-								})}
-							</View>
+						<View style={styles.codeRow}>
+							{digits.map((digit, index) => {
+								const active = digit === '' && digits.slice(0, index).every(Boolean)
+								return (
+									<TextInput
+										key={index}
+										ref={ref => { inputRefs.current[index] = ref }}
+										value={digit}
+										onChangeText={value => handleChangeAt(index, value)}
+										onKeyPress={({ nativeEvent }) => handleKeyPressAt(index, nativeEvent.key)}
+										keyboardType='number-pad'
+										autoComplete={index === 0 ? 'sms-otp' : 'off'}
+										textContentType={index === 0 ? 'oneTimeCode' : 'none'}
+										maxLength={CODE_LENGTH}
+										editable={!loading}
+										selectTextOnFocus
+										style={[
+											styles.codeBox,
+											{
+												color: colors.textPrimary,
+												borderColor: error ? colors.error : active ? '#ff6b4a' : colors.border,
+												backgroundColor: digit ? '#211d20' : '#1a1a1d',
+											},
+										]}
+									/>
+								)
+							})}
 						</View>
 
 						{loading ? <View style={styles.status}><ActivityIndicator color='#ff6b4a' /><Text style={[styles.statusText, { color: colors.textSecondary }]}>جاري التحقق من الرمز...</Text></View> : null}
@@ -167,11 +213,8 @@ const styles = StyleSheet.create({
 	title: { fontSize: 27, fontWeight: '800', textAlign: 'center', marginBottom: 10 },
 	description: { fontSize: 15, textAlign: 'center', lineHeight: 22 },
 	phone: { fontSize: 15, textAlign: 'center', fontWeight: '700', writingDirection: 'ltr', marginTop: 3 },
-	codeArea: { marginTop: 31, minHeight: 62, justifyContent: 'center' },
-	inputOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 3, opacity: 0.02, color: 'transparent' },
-	codeRow: { flexDirection: 'row-reverse', justifyContent: 'space-between', gap: 9 },
-	codeBox: { flex: 1, height: 58, borderWidth: 1.5, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-	codeText: { fontSize: 25, fontWeight: '800' },
+	codeRow: { flexDirection: 'row-reverse', justifyContent: 'space-between', gap: 9, marginTop: 31 },
+	codeBox: { flex: 1, height: 58, borderWidth: 1.5, borderRadius: 15, textAlign: 'center', fontSize: 25, fontWeight: '800', padding: 0 },
 	status: { flexDirection: 'row-reverse', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 20 },
 	statusText: { fontSize: 14 },
 	message: { textAlign: 'center', marginTop: 18, lineHeight: 21 },

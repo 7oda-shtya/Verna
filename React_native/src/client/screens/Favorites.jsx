@@ -298,7 +298,7 @@ const Favorites = ({ navigation }) => {
 								</View>
 							</Pressable>
 						))}
-						
+
 					</View>
 				) : (
 					<View className='gap-3'>

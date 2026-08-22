@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, Image, Keyboard, Pressable, ScrollView, Text, TextInput, View, KeyboardAvoidingView } from 'react-native';
+import { ActivityIndicator, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useDispatch } from 'react-redux';
 import { clearAuthError, register } from '../../redux/slices/client/authSlice';
@@ -113,8 +113,8 @@ const ClientSignUp = ({ navigation }) => {
 			<StatusBar style={theme.statusBarStyle} />
 
 			<AuthBackdrop>
-				<KeyboardAvoidingView behavior='padding' className='flex-1'>
-					<ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 32 }} keyboardShouldPersistTaps='handled'>
+				<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className='flex-1'>
+					<ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingVertical: 32, paddingBottom: 48 }} keyboardShouldPersistTaps='handled' showsVerticalScrollIndicator={false}>
 						<Pressable className='flex-1' onPress={Keyboard.dismiss}>
 							<View className='w-full max-w-md self-center items-center'>
 								<Image source={require('../../../assets/images/Logo.png')} resizeMode='contain' className='h-20 w-52 mb-6' />

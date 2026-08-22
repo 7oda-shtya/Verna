@@ -91,11 +91,16 @@ const RequestTrip = () => {
 		return () => clearTimeout(timer)
 	}, [activeTourId, draftLoaded, isTourSeen, startTour, tourReady])
 
-	useEffect(() => {
-		if (activeTourId !== TOUR_IDS.TRIP_REQUEST || !currentStep) return
-		const detailsSteps = new Set(['timingNow', 'timingLater', 'vehicleCategory', 'confirmTrip'])
-		setBookingStep(detailsSteps.has(currentStep.targetId) ? 2 : 1)
-	}, [activeTourId, currentStep])
+	// Removed: this used to force bookingStep to 2 (the details screen) any time the guided
+	// tour's currentStep pointed at a details-screen target (timingNow/timingLater/
+	// vehicleCategory/confirmTrip) — regardless of whether the user had actually pressed the
+	// real "التالي" button. That's what caused two bugs: (1) the details screen could appear
+	// immediately instead of the map, and (2) finishing the map portion of the tour auto-jumped
+	// to the details screen on its own. Now bookingStep only ever changes via the explicit
+	// "التالي"/"تعديل" buttons below. If the tour reaches a details-screen step while still on
+	// the map, its target simply isn't mounted yet, so TourOverlay just waits (renders nothing)
+	// until the user presses the real "التالي" button — at which point the details screen
+	// mounts, the target registers, and the tour picks the explanation back up right there.
 
 	const handleMapPress = (coord) => {
 		const pin = { lat: coord.latitude, lng: coord.longitude, name: 'موقع محدد على الخريطة' }

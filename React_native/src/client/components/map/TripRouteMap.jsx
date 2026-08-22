@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Map, Camera, ViewAnnotation, GeoJSONSource, Layer } from '@maplibre/maplibre-react-native';
+import { Map as MapLibreMap, Camera, ViewAnnotation, GeoJSONSource, Layer } from '@maplibre/maplibre-react-native';
 import { View, Pressable, Text, Modal } from 'react-native';
 import Animated, { runOnJS, useAnimatedReaction, useSharedValue, withTiming } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -389,7 +389,7 @@ const TripRouteMap = ({ startPin, endPin, waypoints = [], routeCoordinates = [],
 
 	return (
 		<View style={{ flex: 1 }}>
-			<Map
+			<MapLibreMap
 				key={mapStyle}
 				ref={mapRef}
 				style={{ flex: 1 }}
@@ -532,7 +532,7 @@ const TripRouteMap = ({ startPin, endPin, waypoints = [], routeCoordinates = [],
 						/>
 					</GeoJSONSource>
 				)}
-			</Map>
+			</MapLibreMap>
 
 			{tourId ? (
 				<TourTarget tourId={tourId} targetId='mapStyle' asChild>

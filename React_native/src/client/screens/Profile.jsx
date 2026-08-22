@@ -176,7 +176,20 @@ const ClientProfile = ({ navigation }) => {
 
 					<TourTarget tourId={TOUR_IDS.PROFILE} targetId='profileTabs' asChild>
 						<View className='w-full rounded-3xl p-4 mt-4 flex-1 flex-col gap-4 mb-4' style={{ backgroundColor: colors.surface, ...elevation.card }}>
-						<View className='flex-row flex-wrap justify-center items-center gap-2 pb-3' style={{ borderBottomColor: colors.divider, borderBottomWidth: theme.borderWidths.subtle }}>
+						{/*
+						  Fixed: the tab row used flex-wrap, so on narrower screens the 4 tabs
+						  didn't fit on one line and wrapped unevenly (e.g. 3+1), looking
+						  disorganized. A horizontal ScrollView guarantees the tabs always sit
+						  in a single row next to each other on every screen size — it just
+						  scrolls a little if they don't all fit, instead of wrapping to a
+						  second row. Same child order as before, just non-wrapping.
+						*/}
+						<ScrollView
+							horizontal
+							showsHorizontalScrollIndicator={false}
+							contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 12, paddingHorizontal: 2 }}
+							style={{ borderBottomColor: colors.divider, borderBottomWidth: theme.borderWidths.subtle }}
+						>
 							{tabs.map((tab) => {
 								const isActive = selectedSection === tab.id
 								return (
@@ -198,7 +211,7 @@ const ClientProfile = ({ navigation }) => {
 									</Pressable>
 								)
 							})}
-						</View>
+						</ScrollView>
 
 							<View>
 								<ProfileSections selectedSection={selectedSection} />

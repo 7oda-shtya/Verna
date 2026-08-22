@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, Text, Pressable, View } from 'react-native';
 import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme/useTheme';
 import { fetchAvailableTrips, removeAvailableTrip, upsertAvailableTrip } from '../../redux/slices/driver/tripSlice';
 import { toggleDriverStatusRequest } from '../../api/driver.api';
@@ -13,8 +14,18 @@ export default function DriverHome() {
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
   const { theme } = useTheme();
-  const { availableTrips, activeTrip, loading, error } = useSelector((state: any) => state.trip);
-  const isOnline = useSelector((state: any) => state.auth.isOnline);
+  // Defensive defaults: guards against a stale/mismatched Redux store shape
+  // (e.g. right after a Fast Refresh that didn't fully re-init the store for
+  // the correct APP_VARIANT) crashing the whole screen. If you ever see this
+  // fallback kick in during normal use (not right after an edit + hot
+  // reload), do a full Reload of the app — that's the real fix, this is
+  // just a safety net so the UI degrades gracefully instead of crashing.
+  const { availableTrips = [], activeTrip = null, loading = false, error = null } = useSelector((state: any) => state.trip || {});
+  const isOnline = useSelector((state: any) => state.auth?.isOnline);
+  // Account is still pending admin review (docs uploaded, not yet approved/rejected).
+  // The driver still lands on Home as normal — this just surfaces a tappable
+  // reminder instead of blocking the whole app on a separate screen.
+  const isPendingReview = useSelector((state: any) => state.auth?.accountStatus === 'PENDING');
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [statusError, setStatusError] = useState('');
 
@@ -58,6 +69,16 @@ export default function DriverHome() {
   };
 
   return <ScrollView style={{ flex: 1, backgroundColor: theme.colors.background }} contentContainerStyle={{ padding: 18, gap: 14 }} refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={theme.colors.primary} />}>
+    {isPendingReview ? (
+      <Pressable onPress={() => navigation.navigate('KycUpload')} style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 10, padding: 14, borderRadius: 14, backgroundColor: theme.colors.warningMuted, borderColor: theme.colors.warning, borderWidth: theme.borderWidths.subtle }}>
+        <Ionicons name='time-outline' size={22} color={theme.colors.warning} />
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: theme.colors.warning, fontWeight: '800', textAlign: 'right' }}>حسابك لسه تحت المراجعة</Text>
+          <Text style={{ color: theme.colors.textSecondary, textAlign: 'right', marginTop: 2, fontSize: 12 }}>اضغط هنا لتعديل بيانات السيارة أو المستندات</Text>
+        </View>
+        <Ionicons name='chevron-back' size={18} color={theme.colors.warning} />
+      </Pressable>
+    ) : null}
     <Pressable disabled={updatingStatus} onPress={toggleStatus} style={{ alignItems: 'center', padding: 13, borderRadius: 14, backgroundColor: isOnline ? theme.colors.success : theme.colors.surfaceElevated, borderColor: isOnline ? theme.colors.success : theme.colors.border, borderWidth: theme.borderWidths.subtle, opacity: updatingStatus ? .6 : 1 }}>
       <Text style={{ color: isOnline ? '#fff' : theme.colors.textPrimary, fontWeight: '800' }}>{isOnline ? 'متصل — استقبال الطلبات مفعّل' : 'غير متصل — اضغط لتفعيل استقبال الطلبات'}</Text>
     </Pressable>

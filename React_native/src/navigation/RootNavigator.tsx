@@ -4,7 +4,6 @@ import AuthNavigator from './AuthNavigator'
 import { StatusBar } from 'expo-status-bar'
 import { useTheme } from '../theme/useTheme'
 import OtpVerificationScreen from '../shared/screens/OtpVerificationScreen'
-import DriverAccountPendingScreen from '../shared/screens/DriverAccountPendingScreen'
 import { updateClientInfo } from '../redux/slices/client/authSlice'
 
 const AppNavigator = process.env.APP_VARIANT === 'driver'
@@ -19,10 +18,16 @@ const AppNavigator = process.env.APP_VARIANT === 'driver'
 
 const RootNavigator = () => {
 	const dispatch = useDispatch()
-	const isAuthenticated = useSelector((state: any) => state.auth.isAuthenticated)
-	const phone = useSelector((state: any) => state.auth.phone)
-	const isPhoneVerified = useSelector((state: any) => state.auth.isPhoneVerified)
-	const isDriverPendingReview = useSelector((state: any) => state.auth.isDriverPendingReview)
+	const auth = useSelector((state: any) => state.auth)
+	const isAuthenticated = auth.isAuthenticated
+	const phone = auth.phone
+	const isPhoneVerified = auth.isPhoneVerified
+	// Removed the isAwaitingAdminReview gate that used to force drivers with
+	// completed KYC into a full-screen "under review" blocker instead of Home.
+	// Drivers now always land on Home once authenticated + phone verified,
+	// regardless of admin review status — DriverHome shows a dismissible-free
+	// banner instead when the account is still PENDING, linking to KycUpload
+	// for edits.
 	const { theme } = useTheme()
 	const navigationTheme = {
 		dark: theme.isDark,
@@ -47,9 +52,7 @@ const RootNavigator = () => {
 			<StatusBar style={theme.statusBarStyle} />
 			<NavigationContainer theme={navigationTheme}>
 				{isAuthenticated
-					? (isDriverPendingReview
-						? <DriverAccountPendingScreen key='driver-pending-review' />
-						: isPhoneVerified
+					? (isPhoneVerified
 						? <AppNavigator key={process.env.APP_VARIANT === 'driver' ? 'driver' : 'client'} />
 						: <OtpVerificationScreen key='phone-verification' phone={phone} purpose='PHONE_VERIFICATION' onVerified={() => dispatch(updateClientInfo({ isPhoneVerified: true }))} />)
 					: <AuthNavigator key='auth' />}
